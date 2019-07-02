@@ -47,6 +47,9 @@ Ext.define("custom-grid-with-deep-export", {
         this._buildStore();
     },
     launch: function() {
+        Rally.data.wsapi.Proxy.superclass.timeout = 240000;
+        Rally.data.wsapi.batch.Proxy.superclass.timeout = 240000;
+    
         this.ancestorFilterPlugin = Ext.create('Utils.AncestorPiAppFilter', {
             ptype: 'UtilsAncestorPiAppFilter',
             pluginId: 'ancestorFilterPlugin',
