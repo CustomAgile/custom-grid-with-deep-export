@@ -1,4 +1,4 @@
-Ext.define('custom-grid-with-deep-export', {
+Ext.define("custom-grid-with-deep-export", {
     extend: 'Rally.app.App',
     componentCls: 'app',
     logger: new Rally.technicalservices.Logger(),
@@ -33,7 +33,7 @@ Ext.define('custom-grid-with-deep-export', {
     },
 
     integrationHeaders: {
-        name: 'custom-grid-with-deep-export'
+        name: "custom-grid-with-deep-export"
     },
 
     disallowedAddNewTypes: ['user', 'userprofile', 'useriterationcapacity', 'testcaseresult', 'task', 'scmrepository', 'project', 'changeset', 'change', 'builddefinition', 'build', 'program'],
@@ -42,25 +42,27 @@ Ext.define('custom-grid-with-deep-export', {
     statePrefix: 'customlist',
     allowExpansionStateToBeSaved: false,
     enableAddNew: true,
-    onTimeboxScopeChange(newTimeboxScope) {
+    onTimeboxScopeChange: function(newTimeboxScope) {
         this.callParent(arguments);
         this._buildStore();
     },
-    launch() {
+    launch: function() {
         this.ancestorFilterPlugin = Ext.create('Utils.AncestorPiAppFilter', {
             ptype: 'UtilsAncestorPiAppFilter',
             pluginId: 'ancestorFilterPlugin',
             settingsConfig: {
-                // labelWidth: 150,
-                // margin: 10
+                //labelWidth: 150,
+                //margin: 10
             },
             listeners: {
                 scope: this,
-                ready(plugin) {
+                ready: function(plugin) {
                     Rally.data.util.PortfolioItemHelper.getPortfolioItemTypes().then({
                         scope: this,
-                        success(portfolioItemTypes) {
-                            this.portfolioItemTypes = _.sortBy(portfolioItemTypes, type => type.get('Ordinal'));
+                        success: function(portfolioItemTypes) {
+                            this.portfolioItemTypes = _.sortBy(portfolioItemTypes, function(type) {
+                                return type.get('Ordinal');
+                            });
 
                             plugin.addListener({
                                 scope: this,
@@ -68,10 +70,10 @@ Ext.define('custom-grid-with-deep-export', {
                             });
                             this.viewChange();
                         },
-                        failure(msg) {
+                        failure: function(msg) {
                             this._showError(msg);
                         },
-                    });
+                    })
                 },
             }
         });
@@ -79,20 +81,21 @@ Ext.define('custom-grid-with-deep-export', {
     },
 
     // Usual monkey business to size gridboards
-    onResize() {
+    onResize: function() {
         this.callParent(arguments);
-        let gridArea = this.down('#grid-area');
-        let gridboard = this.down('rallygridboard');
+        var gridArea = this.down('#grid-area');
+        var gridboard = this.down('rallygridboard');
         if (gridArea && gridboard) {
-            gridboard.setHeight(gridArea.getHeight());
+            gridboard.setHeight(gridArea.getHeight())
         }
     },
 
-    _buildStore() {
+    _buildStore: function() {
+
         this.modelNames = [this.getSetting('type')];
         this.logger.log('_buildStore', this.modelNames);
-        let fetch = ['FormattedID', 'Name'];
-        let dataContext = this.getContext().getDataContext();
+        var fetch = ['FormattedID', 'Name'];
+        var dataContext = this.getContext().getDataContext();
         if (this.searchAllProjects()) {
             dataContext.project = null;
         }
@@ -101,39 +104,39 @@ Ext.define('custom-grid-with-deep-export', {
             models: this.modelNames,
             enableHierarchy: true,
             remoteSort: true,
-            fetch,
+            fetch: fetch,
             context: dataContext
         }).then({
             success: this._addGridboard,
             scope: this
         });
     },
-    _addGridboard(store) {
-        let gridArea = this.down('#grid-area');
+    _addGridboard: function(store) {
+        var gridArea = this.down('#grid-area')
         gridArea.removeAll();
 
-        let currentModelName = this.modelNames[0];
+        var currentModelName = this.modelNames[0];
 
-        let filters = this.getSetting('query') ? [Rally.data.wsapi.Filter.fromQueryString(this.getSetting('query'))] : [];
-        let timeboxScope = this.getContext().getTimeboxScope();
+        var filters = this.getSetting('query') ? [Rally.data.wsapi.Filter.fromQueryString(this.getSetting('query'))] : [];
+        var timeboxScope = this.getContext().getTimeboxScope();
         if (timeboxScope && timeboxScope.isApplicable(store.model)) {
             filters.push(timeboxScope.getQueryFilter());
         }
-        let ancestorFilter = this.ancestorFilterPlugin.getFilterForType(currentModelName);
+        var ancestorFilter = this.ancestorFilterPlugin.getFilterForType(currentModelName);
         if (ancestorFilter) {
             filters.push(ancestorFilter);
         }
         this.logger.log('_addGridboard', store);
 
-        let context = this.getContext();
-        let dataContext = context.getDataContext();
+        var context = this.getContext();
+        var dataContext = context.getDataContext();
         if (this.searchAllProjects()) {
             dataContext.project = null;
         }
-        let summaryRowFeature = Ext.create('Rally.ui.grid.feature.SummaryRow');
+        var summaryRowFeature = Ext.create('Rally.ui.grid.feature.SummaryRow');
         this.gridboard = gridArea.add({
             xtype: 'rallygridboard',
-            context,
+            context: context,
             modelNames: this.modelNames,
             toggleState: 'grid',
             height: gridArea.getHeight(),
@@ -189,9 +192,9 @@ Ext.define('custom-grid-with-deep-export', {
                 attribute: 'ScheduleState'
             },
             gridConfig: {
-                store,
+                store: store,
                 storeConfig: {
-                    filters,
+                    filters: filters,
                     context: dataContext
                 },
                 columnCfgs: [
@@ -218,18 +221,18 @@ Ext.define('custom-grid-with-deep-export', {
         });
     },
 
-    viewChange() {
+    viewChange: function() {
         this._buildStore();
     },
 
-    getModelScopedStateId(modelName, id) {
-        return this.getContext().getScopedStateId(`${modelName}-${id}`);
+    getModelScopedStateId: function(modelName, id) {
+        return this.getContext().getScopedStateId(modelName + '-' + id);
     },
 
-    _getExportMenuItems() {
-        let result = [];
+    _getExportMenuItems: function() {
+        var result = [];
         this.logger.log('_getExportMenuItems', this.modelNames[0]);
-        let currentModel = this.modelNames[0].toLowerCase();
+        var currentModel = this.modelNames[0].toLowerCase();
         if (currentModel === 'hierarchicalrequirement') {
             result = [{
                 text: 'Export User Stories...',
@@ -247,12 +250,13 @@ Ext.define('custom-grid-with-deep-export', {
                 scope: this,
                 childModels: ['hierarchicalrequirement', 'task', 'defect', 'testcase']
             }];
-        } else if (Ext.String.startsWith(currentModel, 'portfolioitem')) {
-            let piTypeNames = this.getPortfolioItemTypeNames();
-            let idx = _.indexOf(piTypeNames, currentModel);
-            let childModels = [];
+        }
+        else if (Ext.String.startsWith(currentModel,"portfolioitem")) {
+            var piTypeNames = this.getPortfolioItemTypeNames();
+            var idx = _.indexOf(piTypeNames, currentModel);
+            var childModels = [];
             if (idx > 0) {
-                for (let i = idx; i > 0; i--) {
+                for (var i = idx; i > 0; i--) {
                     childModels.push(piTypeNames[i - 1]);
                 }
             }
@@ -261,7 +265,7 @@ Ext.define('custom-grid-with-deep-export', {
                 text: 'Export Portfolio Items...',
                 handler: this._export,
                 scope: this,
-                childModels
+                childModels: childModels
             }, {
                 text: 'Export Portfolio Items and User Stories...',
                 handler: this._export,
@@ -278,7 +282,8 @@ Ext.define('custom-grid-with-deep-export', {
                 scope: this,
                 childModels: childModels.concat(['hierarchicalrequirement', 'task', 'defect', 'testcase'])
             }];
-        } else if (currentModel == 'defect') {
+        }
+        else if (currentModel == 'defect') {
             result = [{
                 text: 'Export Defects...',
                 handler: this._export,
@@ -290,7 +295,8 @@ Ext.define('custom-grid-with-deep-export', {
                 scope: this,
                 childModels: ['defect', 'task', 'testcase']
             }];
-        } else if (currentModel == 'testcase') {
+        }
+        else if (currentModel == 'testcase') {
             result = [{
                 text: 'Export Test Cases...',
                 handler: this._export,
@@ -302,7 +308,8 @@ Ext.define('custom-grid-with-deep-export', {
                 scope: this,
                 childModels: ['defect', 'task', 'testcase']
             }];
-        } else {
+        }
+        else {
             result = [{
                 text: 'Export to CSV...',
                 handler: this._export,
@@ -313,41 +320,46 @@ Ext.define('custom-grid-with-deep-export', {
 
         return result;
     },
-    getPortfolioItemTypeNames() {
-        return _.map(this.portfolioItemTypes, type => type.get('TypePath').toLowerCase());
+    getPortfolioItemTypeNames: function() {
+        return _.map(this.portfolioItemTypes, function(type) {
+            return type.get('TypePath').toLowerCase();
+        });
     },
 
-    _showError(msg) {
+    _showError: function(msg) {
         Rally.ui.notify.Notifier.showError({ message: msg });
     },
-    _showStatus(message) {
+    _showStatus: function(message) {
         this.logger.log('_showstatus', message, this);
         if (message) {
             Rally.ui.notify.Notifier.showStatus({
-                message,
+                message: message,
                 showForever: true,
                 closable: false,
                 animateShowHide: false
             });
-        } else {
+        }
+        else {
             Rally.ui.notify.Notifier.hide();
         }
     },
-    _getExportColumns() {
-        let grid = this.down('rallygridboard').getGridOrBoard();
+    _getExportColumns: function() {
+        var grid = this.down('rallygridboard').getGridOrBoard();
         if (grid) {
-            return _.filter(grid.columns, item => (
-                item.dataIndex &&
-                item.dataIndex != 'DragAndDropRank' &&
-                item.xtype &&
-                item.xtype != 'rallytreerankdraghandlecolumn' &&
-                item.xtype != 'rallyrowactioncolumn' &&
-                item.text != '&#160;'));
+            return _.filter(grid.columns, function(item) {
+                return (
+                    item.dataIndex &&
+                    item.dataIndex != "DragAndDropRank" &&
+                    item.xtype &&
+                    item.xtype != "rallytreerankdraghandlecolumn" &&
+                    item.xtype != "rallyrowactioncolumn" &&
+                    item.text != "&#160;");
+            });
         }
         return [];
     },
-    _getExportFilters() {
-        let grid = this.down('rallygridboard'),
+    _getExportFilters: function() {
+        var grid = this.down('rallygridboard'),
             filters = [],
             query = this.getSetting('query');
 
@@ -360,29 +372,29 @@ Ext.define('custom-grid-with-deep-export', {
             filters.push(Rally.data.wsapi.Filter.fromQueryString(query));
         }
 
-        let timeboxScope = this.getContext().getTimeboxScope();
+        var timeboxScope = this.getContext().getTimeboxScope();
         if (timeboxScope && timeboxScope.isApplicable(grid.getGridOrBoard().store.model)) {
             filters.push(timeboxScope.getQueryFilter());
         }
 
-        let ancestorFilter = this.ancestorFilterPlugin.getFilterForType(this.modelNames[0]);
+        var ancestorFilter = this.ancestorFilterPlugin.getFilterForType(this.modelNames[0]);
         if (ancestorFilter) {
             filters.push(ancestorFilter);
         }
         return filters;
     },
-    _getExportFetch() {
-        let fetch = _.pluck(this._getExportColumns(), 'dataIndex');
+    _getExportFetch: function() {
+        var fetch = _.pluck(this._getExportColumns(), 'dataIndex');
         if (Ext.Array.contains(fetch, 'TaskActualTotal')) {
             fetch.push('Actuals');
         }
         return fetch;
     },
-    _getExportSorters() {
+    _getExportSorters: function() {
         return this.down('rallygridboard').getGridOrBoard().getStore().getSorters();
     },
-    _export(args) {
-        let columns = this._getExportColumns(),
+    _export: function(args) {
+        var columns = this._getExportColumns(),
             fetch = this._getExportFetch(),
             filters = this._getExportFilters(),
             modelName = this.modelNames[0],
@@ -391,10 +403,10 @@ Ext.define('custom-grid-with-deep-export', {
 
         this.logger.log('_export', fetch, args, columns, filters.toString(), childModels, sorters);
 
-        let exporter = Ext.create('Rally.technicalservices.HierarchyExporter', {
-            modelName,
+        var exporter = Ext.create('Rally.technicalservices.HierarchyExporter', {
+            modelName: modelName,
             fileName: 'hierarchy-export.csv',
-            columns,
+            columns: columns,
             portfolioItemTypeObjects: this.portfolioItemTypes
 
         });
@@ -402,15 +414,15 @@ Ext.define('custom-grid-with-deep-export', {
         exporter.on('exporterror', this._showError, this);
         exporter.on('exportcomplete', this._showStatus, this);
 
-        let dataContext = this.getContext().getDataContext();
+        var dataContext = this.getContext().getDataContext();
         if (this.searchAllProjects()) {
             dataContext.project = null;
         }
-        let hierarchyLoader = Ext.create('Rally.technicalservices.HierarchyLoader', {
+        var hierarchyLoader = Ext.create('Rally.technicalservices.HierarchyLoader', {
             model: modelName,
-            fetch,
-            filters,
-            sorters,
+            fetch: fetch,
+            filters: filters,
+            sorters: sorters,
             loadChildModels: childModels,
             portfolioItemTypes: this.portfolioItemTypes,
             context: dataContext
@@ -418,26 +430,26 @@ Ext.define('custom-grid-with-deep-export', {
         hierarchyLoader.on('statusupdate', this._showStatus, this);
         hierarchyLoader.on('hierarchyloadartifactsloaded', exporter.setRecords, exporter);
         hierarchyLoader.on('hierarchyloadcomplete', exporter.export, exporter);
-        hierarchyLoader.on('hierarchyloaderror', this._showError, this);
+        hierarchyLoader.on('hierarchyloaderror', this._showError, this)
         hierarchyLoader.load();
     },
-    getHeight() {
-        let el = this.getEl();
+    getHeight: function() {
+        var el = this.getEl();
         if (el) {
-            let height = this.callParent(arguments);
+            var height = this.callParent(arguments);
             return Ext.isIE8 ? Math.max(height, 600) : height;
         }
 
         return 0;
     },
 
-    setHeight(height) {
+    setHeight: function(height) {
         this.callParent(arguments);
         if (this.gridboard) {
             this.gridboard.setHeight(height);
         }
     },
-    getOptions() {
+    getOptions: function() {
         return [{
             text: 'About...',
             handler: this._launchInfo,
@@ -445,20 +457,20 @@ Ext.define('custom-grid-with-deep-export', {
         }];
     },
 
-    _launchInfo() {
+    _launchInfo: function() {
         if (this.about_dialog) { this.about_dialog.destroy(); }
         this.about_dialog = Ext.create('Rally.technicalservices.InfoLink', {});
     },
 
-    isExternal() {
-        return typeof (this.getAppId()) === 'undefined';
+    isExternal: function() {
+        return typeof(this.getAppId()) == 'undefined';
     },
 
-    searchAllProjects() {
+    searchAllProjects: function() {
         return this.ancestorFilterPlugin.getIgnoreProjectScope();
     },
 
-    getSettingsFields() {
+    getSettingsFields: function() {
         return Rally.technicalservices.CustomGridWithDeepExportSettings.getFields();
     }
 });
