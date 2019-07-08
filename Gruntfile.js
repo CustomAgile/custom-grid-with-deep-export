@@ -57,14 +57,14 @@ module.exports = function(grunt) {
 
     grunt.initConfig({
         pkg,
-        uglify: {
-            options: {
-                mangle: true
-            },
-            ugly: {
-                files: { 'deploy/app.min.js': config.js_files }
-            }
-        },
+        // uglify: {
+        //     options: {
+        //         mangle: true
+        //     },
+        //     ugly: {
+        //         files: { 'deploy/app.min.js': config.js_files }
+        //     }
+        // },
         template: {
             dev: {
                 src: 'templates/App-debug-tpl.html',
@@ -83,13 +83,6 @@ module.exports = function(grunt) {
             prod: {
                 src: 'templates/App-tpl.html',
                 dest: 'deploy/App.txt',
-                engine: 'underscore',
-                variables: config
-            },
-
-            ugly: {
-                src: 'templates/App-ugly-tpl.html',
-                dest: 'deploy/Ugly.txt',
                 engine: 'underscore',
                 variables: config
             },
@@ -392,23 +385,20 @@ module.exports = function(grunt) {
     grunt.loadNpmTasks('grunt-prompt');
 
     // tasks
-    grunt.registerTask('default', ['debug', 'ugly']);
+    grunt.registerTask('default', ['debug', 'pretty']);
     grunt.registerTask('makeauth', 'Create a new auth.json file for connecting to Rally', ['prompt:makeauth', 'template:makeauth']);
 
     // a human readable .txt file
     grunt.registerTask('pretty', 'Create the html for deployment', ['template:prod', 'setPostBuildInfo:deploy/App.txt']);
     //
     grunt.registerTask('debug', 'Create an html file that can run in its own tab', ['template:dev']);
-    //
-    grunt.registerTask('ugly', 'Create the ugly html for deployment', ['uglify:ugly', 'putUglyInConfig', 'template:ugly', 'setPostBuildInfo:deploy/Ugly.txt']);
-    //
 
     grunt.registerTask('test-fast', "Run tests that don't need to connect to Rally", ['jasmine:fast']);
     grunt.registerTask('test-slow', 'Run tests that need to connect to Rally', ['jasmine:slow']);
 
-    grunt.registerTask('test-and-deploy', 'Build and deploy app to the location in auth.json', ['test-fast', 'ugly', 'install:deploy/Ugly.txt']);
+    grunt.registerTask('test-and-deploy', 'Build and deploy app to the location in auth.json', ['test-fast', 'pretty', 'install:deploy/App.txt']);
 
-    grunt.registerTask('deploy', 'Build and deploy app to the location in auth.json', ['ugly', 'install:deploy/Ugly.txt']);
+    grunt.registerTask('deploy', 'Build and deploy app to the location in auth.json', ['ugly', 'install:deploy/App.txt']);
 
     grunt.registerTask('deploy-pretty', 'Build and deploy app to the location in auth.json', ['pretty', 'install:deploy/App.txt']);
 
