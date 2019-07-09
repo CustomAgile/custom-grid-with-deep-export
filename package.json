@@ -16,6 +16,7 @@
         "custom-agile-toolkit": "^1.0.3"
     },
     "devDependencies": {
+        "eslint-config-airbnb": "^17.1.1",
         "grunt": "^0.4.5",
         "grunt-cli": "0.1.6",
         "grunt-contrib-jasmine": "1.1.0",
