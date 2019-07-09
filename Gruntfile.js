@@ -57,14 +57,6 @@ module.exports = function(grunt) {
 
     grunt.initConfig({
         pkg,
-        // uglify: {
-        //     options: {
-        //         mangle: true
-        //     },
-        //     ugly: {
-        //         files: { 'deploy/app.min.js': config.js_files }
-        //     }
-        // },
         template: {
             dev: {
                 src: 'templates/App-debug-tpl.html',
@@ -398,7 +390,7 @@ module.exports = function(grunt) {
 
     grunt.registerTask('test-and-deploy', 'Build and deploy app to the location in auth.json', ['test-fast', 'pretty', 'install:deploy/App.txt']);
 
-    grunt.registerTask('deploy', 'Build and deploy app to the location in auth.json', ['ugly', 'install:deploy/App.txt']);
+    grunt.registerTask('deploy', 'Build and deploy app to the location in auth.json', ['pretty', 'install:deploy/App.txt']);
 
     grunt.registerTask('deploy-pretty', 'Build and deploy app to the location in auth.json', ['pretty', 'install:deploy/App.txt']);
 

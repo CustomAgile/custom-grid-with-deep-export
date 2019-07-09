@@ -14,7 +14,7 @@ Ext.define('custom-grid-with-deep-export', {
             align: 'middle',
             defaultMargins: '0 10 10 0',
         }
-    }, {
+    }, { 
         id: 'grid-area',
         xtype: 'container',
         flex: 1,
