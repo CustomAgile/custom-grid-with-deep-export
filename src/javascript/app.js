@@ -14,7 +14,15 @@ Ext.define('custom-grid-with-deep-export', {
             align: 'middle',
             defaultMargins: '0 10 10 0',
         }
-    }, { 
+    }, {
+        id: Utils.AncestorPiAppFilter.PANEL_RENDER_AREA_ID,
+        xtype: 'container',
+        layout: {
+            type: 'hbox',
+            align: 'middle',
+            defaultMargins: '0 10 10 0',
+        }
+    }, {
         id: 'grid-area',
         xtype: 'container',
         flex: 1,
@@ -52,10 +60,12 @@ Ext.define('custom-grid-with-deep-export', {
         this.ancestorFilterPlugin = Ext.create('Utils.AncestorPiAppFilter', {
             ptype: 'UtilsAncestorPiAppFilter',
             pluginId: 'ancestorFilterPlugin',
-            settingsConfig: {
-                // labelWidth: 150,
-                // margin: 10
-            },
+            settingsConfig: {},
+            whiteListFields: [
+                'Tags',
+                'Milestones'
+            ],
+            filtersHidden: false,
             listeners: {
                 scope: this,
                 ready(plugin) {
@@ -66,7 +76,8 @@ Ext.define('custom-grid-with-deep-export', {
 
                             plugin.addListener({
                                 scope: this,
-                                select: this.viewChange
+                                select: this.viewChange,
+                                change: this.viewChange
                             });
                             this.viewChange();
                         },
@@ -121,10 +132,9 @@ Ext.define('custom-grid-with-deep-export', {
         if (timeboxScope && timeboxScope.isApplicable(store.model)) {
             filters.push(timeboxScope.getQueryFilter());
         }
-        let ancestorFilter = this.ancestorFilterPlugin.getFilterForType(currentModelName);
-        if (ancestorFilter) {
-            filters.push(ancestorFilter);
-        }
+
+        filters = filters.concat(this.ancestorFilterPlugin.getAllFiltersForType(currentModelName));
+
         this.logger.log('_addGridboard', store);
 
         let context = this.getContext();
@@ -151,7 +161,9 @@ Ext.define('custom-grid-with-deep-export', {
                         stateful: true,
                         stateId: this.getModelScopedStateId(currentModelName, 'filters'),
                         modelNames: this.modelNames,
+                        hidden: true,
                         inlineFilterPanelConfig: {
+                            hidden: true,
                             quickFilterPanelConfig: {
                                 portfolioItemTypes: this.portfolioItemTypes,
                                 modelName: currentModelName,
@@ -168,7 +180,8 @@ Ext.define('custom-grid-with-deep-export', {
                     headerPosition: 'left',
                     modelNames: this.modelNames,
                     stateful: true,
-                    stateId: this.getModelScopedStateId(currentModelName, 'fields')
+                    stateId: this.getModelScopedStateId(currentModelName, 'fields'),
+                    margin: '3 10 0 10'
                 },
                 {
                     ptype: 'rallygridboardactionsmenu',
@@ -367,10 +380,8 @@ Ext.define('custom-grid-with-deep-export', {
             filters.push(timeboxScope.getQueryFilter());
         }
 
-        let ancestorFilter = this.ancestorFilterPlugin.getFilterForType(this.modelNames[0]);
-        if (ancestorFilter) {
-            filters.push(ancestorFilter);
-        }
+        filters = filters.concat(this.ancestorFilterPlugin.getAllFiltersForType(this.modelNames[0]));
+
         return filters;
     },
     _getExportFetch() {
