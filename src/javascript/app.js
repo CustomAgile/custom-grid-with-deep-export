@@ -158,8 +158,7 @@ Ext.define('custom-grid-with-deep-export', {
                 {
                     ptype: 'rallygridboardinlinefiltercontrol',
                     inlineFilterButtonConfig: {
-                        stateful: true,
-                        stateId: this.getModelScopedStateId(currentModelName, 'filters'),
+                        stateful: false,
                         modelNames: this.modelNames,
                         hidden: true,
                         inlineFilterPanelConfig: {
