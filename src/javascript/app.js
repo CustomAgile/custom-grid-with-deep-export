@@ -80,7 +80,6 @@ Ext.define('custom-grid-with-deep-export', {
                                 select: this.viewChange,
                                 change: this.viewChange
                             });
-                            this.viewChange();
                         },
                         failure(msg) {
                             this._showError(msg);
@@ -124,8 +123,8 @@ Ext.define('custom-grid-with-deep-export', {
     },
     async _addGridboard(store) {
         let gridArea = this.down('#grid-area');
-        gridArea.removeAll();
         gridArea.setLoading(true);
+        gridArea.removeAll();
 
         let currentModelName = this.modelNames[0];
 

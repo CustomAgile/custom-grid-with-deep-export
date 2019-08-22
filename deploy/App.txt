@@ -3,11 +3,11 @@
 <head>
     <title>custom-grid-with-deep-export-1.4.0</title>
     <!--  (c) 2019 Custom Agile.  All Rights Reserved. -->
-    <!--  Build Date: Thu Aug 22 2019 11:29:38 GMT-0600 (Mountain Daylight Time) -->
+    <!--  Build Date: Thu Aug 22 2019 16:05:48 GMT-0600 (Mountain Daylight Time) -->
 
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Thu Aug 22 2019 11:29:38 GMT-0600 (Mountain Daylight Time)";
-        var CHECKSUM = 1059335163617;
+        var APP_BUILD_DATE = "Thu Aug 22 2019 16:05:48 GMT-0600 (Mountain Daylight Time)";
+        var CHECKSUM = 1062074222047;
     </script>
 
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -507,7 +507,7 @@ Ext.define('Utils.AncestorPiAppFilter', {
     // Returns an array of records fitting the given filters
     _getFilteredIds: function (filters, model, resolve) {
         let dataContext = Rally.getApp().getContext().getDataContext();
-        if (this._ignoreProjectScope()) {
+        if (this.getIgnoreProjectScope()) {
             dataContext.project = null;
         }
 
@@ -609,6 +609,15 @@ Ext.define('Utils.AncestorPiAppFilter', {
 
     _setReady: function () {
         this.ready = true;
+
+        if (this._isSubscriber() && this.tabPanel) {
+            this.tabPanel.hide();
+        }
+
+        if (this._isSubscriber() && this.showFiltersBtn) {
+            this.showFiltersBtn.hide();
+        }
+
         this.fireEvent('ready', this);
     },
 
@@ -1036,6 +1045,10 @@ Ext.define('Utils.AncestorPiAppFilter', {
     },
 
     _ignoreProjectScope: function () {
+        if (this._isSubscriber()) {
+            return this.publishedValue.ignoreProjectScope;
+        }
+
         var result = false;
         if (this._showIgnoreProjectScopeControl()) {
             // If the control is shown, that values overrides the ignoreScope app setting
@@ -2741,7 +2754,6 @@ Ext.define('custom-grid-with-deep-export', {
                                 select: this.viewChange,
                                 change: this.viewChange
                             });
-                            this.viewChange();
                         },
                         failure(msg) {
                             this._showError(msg);
@@ -2785,8 +2797,8 @@ Ext.define('custom-grid-with-deep-export', {
     },
     async _addGridboard(store) {
         let gridArea = this.down('#grid-area');
-        gridArea.removeAll();
         gridArea.setLoading(true);
+        gridArea.removeAll();
 
         let currentModelName = this.modelNames[0];
 
