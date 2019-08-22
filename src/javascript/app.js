@@ -24,6 +24,7 @@ Ext.define('custom-grid-with-deep-export', {
         }
     }, {
         id: 'grid-area',
+        itemId: 'grid-area',
         xtype: 'container',
         flex: 1,
         type: 'vbox',
@@ -121,9 +122,10 @@ Ext.define('custom-grid-with-deep-export', {
             scope: this
         });
     },
-    _addGridboard(store) {
+    async _addGridboard(store) {
         let gridArea = this.down('#grid-area');
         gridArea.removeAll();
+        gridArea.setLoading(true);
 
         let currentModelName = this.modelNames[0];
 
@@ -133,7 +135,8 @@ Ext.define('custom-grid-with-deep-export', {
             filters.push(timeboxScope.getQueryFilter());
         }
 
-        filters = filters.concat(this.ancestorFilterPlugin.getAllFiltersForType(currentModelName));
+        let ancestorAndMultiFilters = await this.ancestorFilterPlugin.getAllFiltersForType(currentModelName);
+        filters = filters.concat(ancestorAndMultiFilters);
 
         this.logger.log('_addGridboard', store);
 
@@ -152,6 +155,9 @@ Ext.define('custom-grid-with-deep-export', {
             listeners: {
                 scope: this,
                 viewchange: this.viewChange,
+                load: function () {
+                    this.down('#grid-area').setLoading(false);
+                }
             },
             plugins: [
                 'rallygridboardaddnew',
@@ -292,7 +298,7 @@ Ext.define('custom-grid-with-deep-export', {
                 scope: this,
                 childModels: childModels.concat(['hierarchicalrequirement', 'task', 'defect', 'testcase'])
             }];
-        } else if (currentModel == 'defect') {
+        } else if (currentModel === 'defect') {
             result = [{
                 text: 'Export Defects...',
                 handler: this._export,
@@ -304,7 +310,7 @@ Ext.define('custom-grid-with-deep-export', {
                 scope: this,
                 childModels: ['defect', 'task', 'testcase']
             }];
-        } else if (currentModel == 'testcase') {
+        } else if (currentModel === 'testcase') {
             result = [{
                 text: 'Export Test Cases...',
                 handler: this._export,
@@ -352,15 +358,15 @@ Ext.define('custom-grid-with-deep-export', {
         if (grid) {
             return _.filter(grid.columns, item => (
                 item.dataIndex &&
-                item.dataIndex != 'DragAndDropRank' &&
+                item.dataIndex !== 'DragAndDropRank' &&
                 item.xtype &&
-                item.xtype != 'rallytreerankdraghandlecolumn' &&
-                item.xtype != 'rallyrowactioncolumn' &&
-                item.text != '&#160;'));
+                item.xtype !== 'rallytreerankdraghandlecolumn' &&
+                item.xtype !== 'rallyrowactioncolumn' &&
+                item.text !== '&#160;'));
         }
         return [];
     },
-    _getExportFilters() {
+    async _getExportFilters() {
         let grid = this.down('rallygridboard'),
             filters = [],
             query = this.getSetting('query');
@@ -379,7 +385,8 @@ Ext.define('custom-grid-with-deep-export', {
             filters.push(timeboxScope.getQueryFilter());
         }
 
-        filters = filters.concat(this.ancestorFilterPlugin.getAllFiltersForType(this.modelNames[0]));
+        let ancestorAndMultiFilters = await this.ancestorFilterPlugin.getAllFiltersForType(this.modelNames[0]);
+        filters = filters.concat(ancestorAndMultiFilters);
 
         return filters;
     },
@@ -393,13 +400,13 @@ Ext.define('custom-grid-with-deep-export', {
     _getExportSorters() {
         return this.down('rallygridboard').getGridOrBoard().getStore().getSorters();
     },
-    _export(args) {
-        let columns = this._getExportColumns(),
-            fetch = this._getExportFetch(),
-            filters = this._getExportFilters(),
-            modelName = this.modelNames[0],
-            childModels = args.childModels,
-            sorters = this._getExportSorters();
+    async _export(args) {
+        let columns = this._getExportColumns();
+        let fetch = this._getExportFetch();
+        let filters = await this._getExportFilters();
+        let modelName = this.modelNames[0];
+        let childModels = args.childModels;
+        let sorters = this._getExportSorters();
 
         this.logger.log('_export', fetch, args, columns, filters.toString(), childModels, sorters);
 
