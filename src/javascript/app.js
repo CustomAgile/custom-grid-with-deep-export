@@ -80,6 +80,7 @@ Ext.define('custom-grid-with-deep-export', {
                                 select: this.viewChange,
                                 change: this.viewChange
                             });
+                            this.viewChange();
                         },
                         failure(msg) {
                             this._showError(msg);
@@ -134,7 +135,7 @@ Ext.define('custom-grid-with-deep-export', {
             filters.push(timeboxScope.getQueryFilter());
         }
 
-        let ancestorAndMultiFilters = await this.ancestorFilterPlugin.getAllFiltersForType(currentModelName);
+        let ancestorAndMultiFilters = await this.ancestorFilterPlugin.getAllFiltersForType(currentModelName, true);
         filters = filters.concat(ancestorAndMultiFilters);
 
         this.logger.log('_addGridboard', store);
@@ -384,7 +385,7 @@ Ext.define('custom-grid-with-deep-export', {
             filters.push(timeboxScope.getQueryFilter());
         }
 
-        let ancestorAndMultiFilters = await this.ancestorFilterPlugin.getAllFiltersForType(this.modelNames[0]);
+        let ancestorAndMultiFilters = await this.ancestorFilterPlugin.getAllFiltersForType(this.modelNames[0], true);
         filters = filters.concat(ancestorAndMultiFilters);
 
         return filters;
