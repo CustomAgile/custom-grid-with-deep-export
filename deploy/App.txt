@@ -1,13 +1,13 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>custom-grid-with-deep-export-1.4.1</title>
+    <title>custom-grid-with-deep-export-1.4.2</title>
     <!--  (c) 2019 Custom Agile.  All Rights Reserved. -->
-    <!--  Build Date: Thu Sep 05 2019 14:44:23 GMT-0700 (Pacific Daylight Time) -->
+    <!--  Build Date: Wed Sep 11 2019 20:44:26 GMT-0700 (Pacific Daylight Time) -->
 
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Thu Sep 05 2019 14:44:23 GMT-0700 (Pacific Daylight Time)";
-        var CHECKSUM = 1116026395079;
+        var APP_BUILD_DATE = "Wed Sep 11 2019 20:44:26 GMT-0700 (Pacific Daylight Time)";
+        var CHECKSUM = 1133227725507;
     </script>
 
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -625,6 +625,11 @@ Ext.define('Utils.AncestorPiAppFilter', {
             dataContext.project = null;
         }
 
+        let ancestor = this.getAncestorFilterForType(model);
+        if (ancestor && ancestor.value) {
+            filters.push(ancestor);
+        }
+
         let store = Ext.create('Rally.data.wsapi.Store', {
             autoLoad: false,
             context: dataContext,
@@ -709,7 +714,7 @@ Ext.define('Utils.AncestorPiAppFilter', {
                     var selectedPi = this.piSelector.getValue();
                     _.merge(result, {
                         piTypePath: selectedPiTypePath,
-                        isPiSelected: !!selectedRecord,
+                        isPiSelected: !!selectedPi,
                         pi: selectedPi,
                         piRecord: selectedRecord
                     });
@@ -2871,6 +2876,8 @@ Ext.define('custom-grid-with-deep-export', {
         this._buildStore();
     },
     launch() {
+        this._setSharedViewOverrides();
+
         Rally.data.wsapi.Proxy.superclass.timeout = 240000;
         Rally.data.wsapi.batch.Proxy.superclass.timeout = 240000;
         this.ancestorFilterPlugin = Ext.create('Utils.AncestorPiAppFilter', {
@@ -2915,6 +2922,39 @@ Ext.define('custom-grid-with-deep-export', {
         if (gridArea && gridboard) {
             gridboard.setHeight(gridArea.getHeight());
         }
+    },
+
+    _setSharedViewOverrides() {
+        Ext.override(Rally.ui.gridboard.GridBoard, {
+            getCurrentView: function () {
+                var ancestorData = Rally.getApp().ancestorFilterPlugin._getValue();
+                // Delete piRecord to avoid recursive stack overflow error
+                delete ancestorData.piRecord;
+                var views = Ext.apply(this.callParent(arguments), ancestorData);
+
+                return views;
+            },
+            setCurrentView: function (view) {
+                var app = Rally.getApp();
+                app.down('#grid-area').setLoading('Loading View...');
+                Ext.suspendLayouts();
+                app.settingView = true;
+                if (app.ancestorFilterPlugin) {
+                    if (app.ancestorFilterPlugin.renderArea.down('#ignoreScopeControl')) {
+                        app.ancestorFilterPlugin.renderArea.down('#ignoreScopeControl').setValue(view.ignoreProjectScope);
+                    }
+                    app.ancestorFilterPlugin.setMultiLevelFilterStates(view.filterStates);
+                    app.ancestorFilterPlugin._setPiSelector(view.piTypePath, view.pi);
+                }
+                this.callParent(arguments);
+
+                setTimeout(async function () {
+                    Ext.resumeLayouts(true);
+                    app.settingView = false;
+                    app.viewChange();
+                }.bind(this), 400);
+            }
+        });
     },
 
     _buildStore() {
@@ -2979,7 +3019,8 @@ Ext.define('custom-grid-with-deep-export', {
                 {
                     ptype: 'rallygridboardinlinefiltercontrol',
                     inlineFilterButtonConfig: {
-                        stateful: false,
+                        stateful: true,
+                        stateId: this.getContext().getScopedStateId('CA.customGridWithDeepExport'),
                         modelNames: this.modelNames,
                         hidden: true,
                         inlineFilterPanelConfig: {
@@ -3054,6 +3095,9 @@ Ext.define('custom-grid-with-deep-export', {
     },
 
     viewChange() {
+        if (this.settingView) {
+            return;
+        }
         this._buildStore();
     },
 
