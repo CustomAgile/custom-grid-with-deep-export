@@ -4,6 +4,7 @@
     "sdk": "2.1",
     "apiKey": "_PUT_APIKEY_HERE_",
     "javascript": [
+        "node_modules/@agile-central-technical-services/utils-cancel-store-load/index.js",
         "node_modules/custom-agile-toolkit/web.js",
         "node_modules/@agile-central-technical-services/utils-shared-views/index.js",
         "node_modules/@customagile/ancestor-pi-multi-level-pi-app-filter/index.js",

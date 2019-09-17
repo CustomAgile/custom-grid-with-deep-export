@@ -58,8 +58,8 @@ Ext.define('custom-grid-with-deep-export', {
     launch() {
         this._setSharedViewOverrides();
 
-        Rally.data.wsapi.Proxy.superclass.timeout = 240000;
-        Rally.data.wsapi.batch.Proxy.superclass.timeout = 240000;
+        Rally.data.wsapi.Proxy.superclass.timeout = 180000;
+        Rally.data.wsapi.batch.Proxy.superclass.timeout = 180000;
         this.ancestorFilterPlugin = Ext.create('Utils.AncestorPiAppFilter', {
             ptype: 'UtilsAncestorPiAppFilter',
             pluginId: 'ancestorFilterPlugin',
@@ -158,6 +158,12 @@ Ext.define('custom-grid-with-deep-export', {
         });
     },
     async _addGridboard(store) {
+
+        var gridboardStore = Ext.getStore('gridboardStore');
+        if (gridboardStore) {
+            gridboardStore.cancelLoad();
+        }
+
         this.loadingFailed = false;
         let gridArea = this.down('#grid-area');
         gridArea.setLoading(true);
@@ -172,9 +178,8 @@ Ext.define('custom-grid-with-deep-export', {
         }
 
         let ancestorAndMultiFilters = await this.ancestorFilterPlugin.getAllFiltersForType(currentModelName, true).catch((e) => {
-            this._showErrorNotification(e.message || e);
+            Rally.ui.notify.Notifier.showError({ message: (e.message || e) });
             this.loadingFailed = true;
-            this.setLoading(false);
         });
 
         if (this.loadingFailed) {
@@ -182,7 +187,9 @@ Ext.define('custom-grid-with-deep-export', {
             return;
         }
 
-        filters = filters.concat(ancestorAndMultiFilters);
+        if (ancestorAndMultiFilters) {
+            filters = filters.concat(ancestorAndMultiFilters);
+        }
 
         this.logger.log('_addGridboard', store);
 
@@ -258,6 +265,7 @@ Ext.define('custom-grid-with-deep-export', {
             gridConfig: {
                 store,
                 storeConfig: {
+                    storeId: 'gridboardStore',
                     filters,
                     context: dataContext,
                     enablePostGet: true
@@ -439,7 +447,7 @@ Ext.define('custom-grid-with-deep-export', {
         }
 
         let ancestorAndMultiFilters = await this.ancestorFilterPlugin.getAllFiltersForType(this.modelNames[0], true).catch((e) => {
-            this._showErrorNotification(e.message || e);
+            Rally.ui.notify.Notifier.showError({ message: (e.message || e) });
             this.loadingFailed = true;
         });
 
@@ -463,6 +471,11 @@ Ext.define('custom-grid-with-deep-export', {
         let columns = this._getExportColumns();
         let fetch = this._getExportFetch();
         let filters = await this._getExportFilters();
+
+        if (this.loadingFailed) {
+            return;
+        }
+
         let modelName = this.modelNames[0];
         let childModels = args.childModels;
         let sorters = this._getExportSorters();
