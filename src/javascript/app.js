@@ -158,6 +158,7 @@ Ext.define('custom-grid-with-deep-export', {
         });
     },
     async _addGridboard(store) {
+        this.loadingFailed = false;
         let gridArea = this.down('#grid-area');
         gridArea.setLoading(true);
         gridArea.removeAll();
@@ -170,7 +171,17 @@ Ext.define('custom-grid-with-deep-export', {
             filters.push(timeboxScope.getQueryFilter());
         }
 
-        let ancestorAndMultiFilters = await this.ancestorFilterPlugin.getAllFiltersForType(currentModelName, true);
+        let ancestorAndMultiFilters = await this.ancestorFilterPlugin.getAllFiltersForType(currentModelName, true).catch((e) => {
+            this._showErrorNotification(e.message || e);
+            this.loadingFailed = true;
+            this.setLoading(false);
+        });
+
+        if (this.loadingFailed) {
+            gridArea.setLoading(false);
+            return;
+        }
+
         filters = filters.concat(ancestorAndMultiFilters);
 
         this.logger.log('_addGridboard', store);
@@ -248,7 +259,8 @@ Ext.define('custom-grid-with-deep-export', {
                 store,
                 storeConfig: {
                     filters,
-                    context: dataContext
+                    context: dataContext,
+                    enablePostGet: true
                 },
                 columnCfgs: [
                     'Name',
@@ -406,6 +418,8 @@ Ext.define('custom-grid-with-deep-export', {
         return [];
     },
     async _getExportFilters() {
+        this.loadingFailed = false;
+
         let grid = this.down('rallygridboard'),
             filters = [],
             query = this.getSetting('query');
@@ -424,8 +438,14 @@ Ext.define('custom-grid-with-deep-export', {
             filters.push(timeboxScope.getQueryFilter());
         }
 
-        let ancestorAndMultiFilters = await this.ancestorFilterPlugin.getAllFiltersForType(this.modelNames[0], true);
-        filters = filters.concat(ancestorAndMultiFilters);
+        let ancestorAndMultiFilters = await this.ancestorFilterPlugin.getAllFiltersForType(this.modelNames[0], true).catch((e) => {
+            this._showErrorNotification(e.message || e);
+            this.loadingFailed = true;
+        });
+
+        if (ancestorAndMultiFilters) {
+            filters = filters.concat(ancestorAndMultiFilters);
+        }
 
         return filters;
     },
@@ -471,7 +491,8 @@ Ext.define('custom-grid-with-deep-export', {
             sorters,
             loadChildModels: childModels,
             portfolioItemTypes: this.portfolioItemTypes,
-            context: dataContext
+            context: dataContext,
+            enablePostGet: true
         });
         hierarchyLoader.on('statusupdate', this._showStatus, this);
         hierarchyLoader.on('hierarchyloadartifactsloaded', exporter.setRecords, exporter);
