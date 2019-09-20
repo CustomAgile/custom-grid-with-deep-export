@@ -1,13 +1,13 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>custom-grid-with-deep-export-1.4.3</title>
+    <title>custom-grid-with-deep-export-1.4.4</title>
     <!--  (c) 2019 Custom Agile.  All Rights Reserved. -->
-    <!--  Build Date: Tue Sep 17 2019 15:12:48 GMT-0700 (Pacific Daylight Time) -->
+    <!--  Build Date: Thu Sep 19 2019 18:05:17 GMT-0700 (Pacific Daylight Time) -->
 
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Tue Sep 17 2019 15:12:48 GMT-0700 (Pacific Daylight Time)";
-        var CHECKSUM = 1171451144750;
+        var APP_BUILD_DATE = "Thu Sep 19 2019 18:05:17 GMT-0700 (Pacific Daylight Time)";
+        var CHECKSUM = 1177958779755;
     </script>
 
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -2723,6 +2723,37 @@ Ext.define('Rally.technicalservices.HierarchyLoader', {
 
 });
 
+Ext.override(Rally.ui.gridboard.GridBoard, {
+    getCurrentView: function () {
+        var ancestorData = Rally.getApp().ancestorFilterPlugin._getValue();
+        // Delete piRecord to avoid recursive stack overflow error
+        delete ancestorData.piRecord;
+        var views = Ext.apply(this.callParent(arguments), ancestorData);
+
+        return views;
+    },
+    setCurrentView: function (view) {
+        var app = Rally.getApp();
+        app.down('#grid-area').setLoading('Loading View...');
+        Ext.suspendLayouts();
+        app.settingView = true;
+        if (app.ancestorFilterPlugin) {
+            if (app.ancestorFilterPlugin.renderArea.down('#ignoreScopeControl')) {
+                app.ancestorFilterPlugin.renderArea.down('#ignoreScopeControl').setValue(view.ignoreProjectScope);
+            }
+            app.ancestorFilterPlugin.setMultiLevelFilterStates(view.filterStates);
+            app.ancestorFilterPlugin._setPiSelector(view.piTypePath, view.pi);
+        }
+        this.callParent(arguments);
+
+        setTimeout(async function () {
+            Ext.resumeLayouts(true);
+            app.settingView = false;
+            app.viewChange();
+        }.bind(this), 400);
+    }
+});
+
 // Remove 'Actuals' from the blacklist
 Ext.override(Rally.ui.gridboard.plugin.GridBoardFieldPicker, {
     gridFieldBlackList: [
@@ -2753,8 +2784,8 @@ Ext.override(Rally.ui.inlinefilter.PropertyFieldComboBox, {
 Ext.override(Rally.ui.grid.TreeGrid, {
     // Override needed to allow summaryType to be restored when a column with
     // summaryType config is added by the field picker
-    _mergeColumnConfigs: function(newColumns, oldColumns) {
-        return _.map(newColumns, function(newColumn) {
+    _mergeColumnConfigs: function (newColumns, oldColumns) {
+        return _.map(newColumns, function (newColumn) {
             // If the newly selected column is currently in oldColumns (this.columns), then
             // use the in-use column config to preserve its current settings
             var result = newColumn;
@@ -2779,10 +2810,10 @@ Ext.override(Rally.ui.grid.TreeGrid, {
 
     // Override needed to allow summaryType to be included when a column is restored
     // from state.
-    _applyStatefulColumns: function(columns) {
+    _applyStatefulColumns: function (columns) {
         // TODO (tj) test default columns
         if (this.alwaysShowDefaultColumns) {
-            _.each(this.columnCfgs, function(columnCfg) {
+            _.each(this.columnCfgs, function (columnCfg) {
                 if (!_.any(columns, { dataIndex: this._getColumnName(columnCfg) })) {
                     columns.push(columnCfg);
                 }
@@ -2792,10 +2823,10 @@ Ext.override(Rally.ui.grid.TreeGrid, {
         if (this.config && this.config.columnCfgs) {
             // Merge the column config with the stateful column if the dataIndex is the same.
             // This allows use to pick up summaryType and custom renderers
-            _.each(this.config.columnCfgs, function(columnCfg) {
+            _.each(this.config.columnCfgs, function (columnCfg) {
                 // Search by dataIndex or text
                 var columnName = this._getColumnName(columnCfg);
-                var columnState = _.find(columns, function(value) {
+                var columnState = _.find(columns, function (value) {
                     return (value.dataIndex === columnName || value.text === columnName);
                 });
                 if (columnState) {
@@ -2948,8 +2979,6 @@ Ext.define('custom-grid-with-deep-export', {
         this._buildStore();
     },
     launch() {
-        this._setSharedViewOverrides();
-
         Rally.data.wsapi.Proxy.superclass.timeout = 180000;
         Rally.data.wsapi.batch.Proxy.superclass.timeout = 180000;
         this.ancestorFilterPlugin = Ext.create('Utils.AncestorPiAppFilter', {
@@ -2996,39 +3025,6 @@ Ext.define('custom-grid-with-deep-export', {
         }
     },
 
-    _setSharedViewOverrides() {
-        Ext.override(Rally.ui.gridboard.GridBoard, {
-            getCurrentView: function () {
-                var ancestorData = Rally.getApp().ancestorFilterPlugin._getValue();
-                // Delete piRecord to avoid recursive stack overflow error
-                delete ancestorData.piRecord;
-                var views = Ext.apply(this.callParent(arguments), ancestorData);
-
-                return views;
-            },
-            setCurrentView: function (view) {
-                var app = Rally.getApp();
-                app.down('#grid-area').setLoading('Loading View...');
-                Ext.suspendLayouts();
-                app.settingView = true;
-                if (app.ancestorFilterPlugin) {
-                    if (app.ancestorFilterPlugin.renderArea.down('#ignoreScopeControl')) {
-                        app.ancestorFilterPlugin.renderArea.down('#ignoreScopeControl').setValue(view.ignoreProjectScope);
-                    }
-                    app.ancestorFilterPlugin.setMultiLevelFilterStates(view.filterStates);
-                    app.ancestorFilterPlugin._setPiSelector(view.piTypePath, view.pi);
-                }
-                this.callParent(arguments);
-
-                setTimeout(async function () {
-                    Ext.resumeLayouts(true);
-                    app.settingView = false;
-                    app.viewChange();
-                }.bind(this), 400);
-            }
-        });
-    },
-
     _buildStore() {
         this.modelNames = [this.getSetting('type')];
         this.logger.log('_buildStore', this.modelNames);
@@ -3062,6 +3058,7 @@ Ext.define('custom-grid-with-deep-export', {
         gridArea.removeAll();
 
         let currentModelName = this.modelNames[0];
+        let stateIdForType = Ext.String.startsWith(currentModelName.toLowerCase(), 'portfolioitem') ? 'CA.customgridportfolioitems' : 'CA.customgridothers';
 
         let filters = this.getSetting('query') ? [Rally.data.wsapi.Filter.fromQueryString(this.getSetting('query'))] : [];
         let timeboxScope = this.getContext().getTimeboxScope();
@@ -3091,9 +3088,47 @@ Ext.define('custom-grid-with-deep-export', {
             dataContext.project = null;
         }
         let summaryRowFeature = Ext.create('Rally.ui.grid.feature.SummaryRow');
+
+        let columnConfig = [];
+        if (Ext.String.startsWith(currentModelName.toLowerCase(), 'portfolioitem')) {
+            columnConfig = [
+                'FormattedID',
+                'Name',
+                'Release',
+                'State',
+                'PercentDoneByStoryPlanEstimate',
+                'PercentDoneByStoryCount',
+                'Project',
+                'Owner',
+                'ScheduleState'
+            ];
+        } else {
+            columnConfig = [
+                'Name',
+                {
+                    dataIndex: 'PlanEstimate',
+                    summaryType: 'sum'
+                },
+                {
+                    dataIndex: 'TaskRemainingTotal',
+                    summaryType: 'sum'
+                },
+                {
+                    dataIndex: 'ToDo',
+                    summaryType: 'sum'
+                },
+                {
+                    dataIndex: 'TaskEstimateTotal',
+                    summaryType: 'sum'
+                }
+            ];
+        }
+
         this.gridboard = gridArea.add({
             xtype: 'rallygridboard',
             context,
+            stateful: true,
+            stateId: stateIdForType,
             modelNames: this.modelNames,
             toggleState: 'grid',
             height: gridArea.getHeight(),
@@ -3162,25 +3197,9 @@ Ext.define('custom-grid-with-deep-export', {
                     context: dataContext,
                     enablePostGet: true
                 },
-                columnCfgs: [
-                    'Name',
-                    {
-                        dataIndex: 'PlanEstimate',
-                        summaryType: 'sum'
-                    },
-                    {
-                        dataIndex: 'TaskRemainingTotal',
-                        summaryType: 'sum'
-                    },
-                    {
-                        dataIndex: 'ToDo',
-                        summaryType: 'sum'
-                    },
-                    {
-                        dataIndex: 'TaskEstimateTotal',
-                        summaryType: 'sum'
-                    }
-                ],
+                stateful: true,
+                stateId: stateIdForType + 'TreeGrid',
+                columnCfgs: columnConfig,
                 features: [summaryRowFeature]
             }
         });

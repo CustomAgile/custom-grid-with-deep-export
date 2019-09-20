@@ -56,8 +56,6 @@ Ext.define('custom-grid-with-deep-export', {
         this._buildStore();
     },
     launch() {
-        this._setSharedViewOverrides();
-
         Rally.data.wsapi.Proxy.superclass.timeout = 180000;
         Rally.data.wsapi.batch.Proxy.superclass.timeout = 180000;
         this.ancestorFilterPlugin = Ext.create('Utils.AncestorPiAppFilter', {
@@ -104,39 +102,6 @@ Ext.define('custom-grid-with-deep-export', {
         }
     },
 
-    _setSharedViewOverrides() {
-        Ext.override(Rally.ui.gridboard.GridBoard, {
-            getCurrentView: function () {
-                var ancestorData = Rally.getApp().ancestorFilterPlugin._getValue();
-                // Delete piRecord to avoid recursive stack overflow error
-                delete ancestorData.piRecord;
-                var views = Ext.apply(this.callParent(arguments), ancestorData);
-
-                return views;
-            },
-            setCurrentView: function (view) {
-                var app = Rally.getApp();
-                app.down('#grid-area').setLoading('Loading View...');
-                Ext.suspendLayouts();
-                app.settingView = true;
-                if (app.ancestorFilterPlugin) {
-                    if (app.ancestorFilterPlugin.renderArea.down('#ignoreScopeControl')) {
-                        app.ancestorFilterPlugin.renderArea.down('#ignoreScopeControl').setValue(view.ignoreProjectScope);
-                    }
-                    app.ancestorFilterPlugin.setMultiLevelFilterStates(view.filterStates);
-                    app.ancestorFilterPlugin._setPiSelector(view.piTypePath, view.pi);
-                }
-                this.callParent(arguments);
-
-                setTimeout(async function () {
-                    Ext.resumeLayouts(true);
-                    app.settingView = false;
-                    app.viewChange();
-                }.bind(this), 400);
-            }
-        });
-    },
-
     _buildStore() {
         this.modelNames = [this.getSetting('type')];
         this.logger.log('_buildStore', this.modelNames);
@@ -170,6 +135,7 @@ Ext.define('custom-grid-with-deep-export', {
         gridArea.removeAll();
 
         let currentModelName = this.modelNames[0];
+        let stateIdForType = Ext.String.startsWith(currentModelName.toLowerCase(), 'portfolioitem') ? 'CA.customgridportfolioitems' : 'CA.customgridothers';
 
         let filters = this.getSetting('query') ? [Rally.data.wsapi.Filter.fromQueryString(this.getSetting('query'))] : [];
         let timeboxScope = this.getContext().getTimeboxScope();
@@ -199,9 +165,47 @@ Ext.define('custom-grid-with-deep-export', {
             dataContext.project = null;
         }
         let summaryRowFeature = Ext.create('Rally.ui.grid.feature.SummaryRow');
+
+        let columnConfig = [];
+        if (Ext.String.startsWith(currentModelName.toLowerCase(), 'portfolioitem')) {
+            columnConfig = [
+                'FormattedID',
+                'Name',
+                'Release',
+                'State',
+                'PercentDoneByStoryPlanEstimate',
+                'PercentDoneByStoryCount',
+                'Project',
+                'Owner',
+                'ScheduleState'
+            ];
+        } else {
+            columnConfig = [
+                'Name',
+                {
+                    dataIndex: 'PlanEstimate',
+                    summaryType: 'sum'
+                },
+                {
+                    dataIndex: 'TaskRemainingTotal',
+                    summaryType: 'sum'
+                },
+                {
+                    dataIndex: 'ToDo',
+                    summaryType: 'sum'
+                },
+                {
+                    dataIndex: 'TaskEstimateTotal',
+                    summaryType: 'sum'
+                }
+            ];
+        }
+
         this.gridboard = gridArea.add({
             xtype: 'rallygridboard',
             context,
+            stateful: true,
+            stateId: stateIdForType,
             modelNames: this.modelNames,
             toggleState: 'grid',
             height: gridArea.getHeight(),
@@ -270,25 +274,9 @@ Ext.define('custom-grid-with-deep-export', {
                     context: dataContext,
                     enablePostGet: true
                 },
-                columnCfgs: [
-                    'Name',
-                    {
-                        dataIndex: 'PlanEstimate',
-                        summaryType: 'sum'
-                    },
-                    {
-                        dataIndex: 'TaskRemainingTotal',
-                        summaryType: 'sum'
-                    },
-                    {
-                        dataIndex: 'ToDo',
-                        summaryType: 'sum'
-                    },
-                    {
-                        dataIndex: 'TaskEstimateTotal',
-                        summaryType: 'sum'
-                    }
-                ],
+                stateful: true,
+                stateId: stateIdForType + 'TreeGrid',
+                columnCfgs: columnConfig,
                 features: [summaryRowFeature]
             }
         });
