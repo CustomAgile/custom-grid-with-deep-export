@@ -7,6 +7,24 @@ Ext.define('custom-grid-with-deep-export', {
         align: 'stretch'
     },
     items: [{
+        id: 'approval-container',
+        xtype: 'container',
+        layout: {
+            type: 'hbox',
+            align: 'middle',
+            defaultMargins: '0 10 10 0',
+        },
+        items: [{
+            xtype: 'rallyfieldvaluecombobox',
+            itemId: 'approvalCombo',
+            model: 'PortfolioItem',
+            field: 'c_EnterpriseApprovalEA',
+            allowBlank: true,
+            defaultSelectionPosition: 'first',
+            fieldLabel: 'Enterprise Approval',
+            labelWidth: 120
+        }]
+    }, {
         id: Utils.AncestorPiAppFilter.RENDER_AREA_ID,
         xtype: 'container',
         layout: {
@@ -58,13 +76,17 @@ Ext.define('custom-grid-with-deep-export', {
     launch() {
         Rally.data.wsapi.Proxy.superclass.timeout = 180000;
         Rally.data.wsapi.batch.Proxy.superclass.timeout = 180000;
+
+        this.down('#approvalCombo').on('change', this.viewChange, this);
+
         this.ancestorFilterPlugin = Ext.create('Utils.AncestorPiAppFilter', {
             ptype: 'UtilsAncestorPiAppFilter',
             pluginId: 'ancestorFilterPlugin',
             settingsConfig: {},
             whiteListFields: [
                 'Tags',
-                'Milestones'
+                'Milestones',
+                'c_EnterpriseApprovalEA'
             ],
             filtersHidden: false,
             listeners: {
@@ -156,6 +178,11 @@ Ext.define('custom-grid-with-deep-export', {
         if (ancestorAndMultiFilters) {
             filters = filters.concat(ancestorAndMultiFilters);
         }
+
+        filters.push(new Rally.data.wsapi.Filter({
+            property: 'c_EnterpriseApprovalEA',
+            value: this.down('#approvalCombo').getValue()
+        }));
 
         this.logger.log('_addGridboard', store);
 
@@ -319,7 +346,7 @@ Ext.define('custom-grid-with-deep-export', {
             let idx = _.indexOf(piTypeNames, currentModel);
             let childModels = [];
             if (idx > 0) {
-                for (let i = idx; i > 0; i--) {
+                for (let i = idx;i > 0;i--) {
                     childModels.push(piTypeNames[i - 1]);
                 }
             }
