@@ -69,15 +69,14 @@ Ext.define('custom-grid-with-deep-export', {
     statePrefix: 'customlist',
     allowExpansionStateToBeSaved: false,
     enableAddNew: true,
-    onTimeboxScopeChange(newTimeboxScope) {
+    onTimeboxScopeChange() {
         this.callParent(arguments);
+        this._clearSharedViewCombo();
         this._buildStore();
     },
     launch() {
         Rally.data.wsapi.Proxy.superclass.timeout = 180000;
         Rally.data.wsapi.batch.Proxy.superclass.timeout = 180000;
-
-        this.down('#approvalCombo').on('change', this.viewChange, this);
 
         this.ancestorFilterPlugin = Ext.create('Utils.AncestorPiAppFilter', {
             ptype: 'UtilsAncestorPiAppFilter',
@@ -102,6 +101,7 @@ Ext.define('custom-grid-with-deep-export', {
                                 select: this.viewChange,
                                 change: this.viewChange
                             });
+                            this.down('#approvalCombo').on('change', this.viewChange, this);
                             this.viewChange();
                         },
                         failure(msg) {
@@ -154,7 +154,7 @@ Ext.define('custom-grid-with-deep-export', {
         this.loadingFailed = false;
         let gridArea = this.down('#grid-area');
         gridArea.setLoading(true);
-        gridArea.removeAll();
+        gridArea.removeAll(true);
 
         let currentModelName = this.modelNames[0];
         let stateIdForType = Ext.String.startsWith(currentModelName.toLowerCase(), 'portfolioitem') ? 'CA.customgridportfolioitems' : 'CA.customgridothers';
@@ -249,7 +249,7 @@ Ext.define('custom-grid-with-deep-export', {
                     ptype: 'rallygridboardinlinefiltercontrol',
                     inlineFilterButtonConfig: {
                         stateful: true,
-                        stateId: this.getContext().getScopedStateId('CA.customGridWithDeepExport'),
+                        stateId: this.getContext().getScopedStateId('CA.customGridWithDeepExportFilterHidden'),
                         modelNames: this.modelNames,
                         hidden: true,
                         inlineFilterPanelConfig: {
@@ -284,9 +284,11 @@ Ext.define('custom-grid-with-deep-export', {
                     ptype: 'rallygridboardsharedviewcontrol',
                     sharedViewConfig: {
                         enableUrlSharing: this.getSetting('enableUrlSharing'),
+                        itemId: 'sharedViewCombo',
                         stateful: true,
                         stateId: this.getModelScopedStateId(currentModelName, 'views'),
-                        stateEvents: ['select', 'beforedestroy']
+                        stateEvents: ['select', 'change', 'beforedestroy'],
+                        context: this.getContext()
                     },
                 }
             ],
@@ -313,7 +315,16 @@ Ext.define('custom-grid-with-deep-export', {
         if (this.settingView) {
             return;
         }
+        this._clearSharedViewCombo();
         this._buildStore();
+    },
+
+    _clearSharedViewCombo: function () {
+        let combo = this.down('#sharedViewCombo');
+        if (!this.settingView && combo) {
+            combo.setValue('');
+            combo.saveState();
+        }
     },
 
     getModelScopedStateId(modelName, id) {
