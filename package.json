@@ -1,6 +1,6 @@
 {
     "name": "custom-grid-with-deep-export",
-    "version": "1.4.5",
+    "version": "1.4.6",
     "scripts": {
         "debug": "grunt debug",
         "debug:watch": "nodemon --exec grunt debug",
@@ -12,9 +12,7 @@
         "@agile-central-technical-services/utils-ancestor-pi-inline-filter": "^1.0.14",
         "@agile-central-technical-services/utils-cancel-store-load": "^1.0.0",
         "@agile-central-technical-services/utils-shared-views": "^1.0.2",
-        "@customagile/ancestor-pi-multi-level-pi-app-filter": "git+https://github.com/CustomAgile/utils-ancestor-pi-app-filter.git",
-        "custom-agile-ext-components": "git+https://github.com/CustomAgile/JavaScriptComponents.git",
-        "custom-agile-toolkit": "^1.0.3"
+        "@customagile/ancestor-pi-multi-level-pi-app-filter": "git+https://github.com/CustomAgile/utils-ancestor-pi-app-filter.git"
     },
     "devDependencies": {
         "eslint-config-airbnb": "^17.1.1",

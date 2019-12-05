@@ -1,31 +1,56 @@
+Ext.override(Rally.ui.dialog.SharedViewDialog, {
+    /* 
+        Dialog and Combobox weren't refreshing after adding a new shared
+        view, so here we are 
+    */
+    _onCreate: function (dialog, record) {
+        if (this.grid) {
+            this.grid.getStore().reload();
+        }
+        let newPrefRef = record.get('_ref');
+        let combobox = Rally.getApp().down('#sharedViewCombo');
+
+        if (newPrefRef && combobox) {
+            combobox.getStore().reload();
+            combobox.setValue(newPrefRef);
+            combobox.saveState();
+        }
+
+        this.down('#doneButton').focus();
+    },
+});
+
 Ext.override(Rally.ui.gridboard.GridBoard, {
     getCurrentView: function () {
-        var ancestorData = Rally.getApp().ancestorFilterPlugin._getValue();
-        // Delete piRecord to avoid recursive stack overflow error
-        delete ancestorData.piRecord;
-        var views = Ext.apply(this.callParent(arguments), ancestorData);
+        let views = [];
+        let ancestorPlugin = Rally.getApp().ancestorFilterPlugin;
+
+        if (ancestorPlugin) {
+            views = Ext.apply(this.callParent(arguments), ancestorPlugin.getCurrentView());
+        }
+        else {
+            views = this.callParent(arguments);
+        }
 
         return views;
     },
     setCurrentView: function (view) {
         var app = Rally.getApp();
         app.down('#grid-area').setLoading('Loading View...');
-        Ext.suspendLayouts();
+        // Ext.suspendLayouts();
         app.settingView = true;
+
         if (app.ancestorFilterPlugin) {
-            if (app.ancestorFilterPlugin.renderArea.down('#ignoreScopeControl')) {
-                app.ancestorFilterPlugin.renderArea.down('#ignoreScopeControl').setValue(view.ignoreProjectScope);
-            }
-            app.ancestorFilterPlugin.setMultiLevelFilterStates(view.filterStates);
-            app.ancestorFilterPlugin._setPiSelector(view.piTypePath, view.pi);
+            app.ancestorFilterPlugin.setCurrentView(view);
         }
+
         this.callParent(arguments);
 
         setTimeout(async function () {
-            Ext.resumeLayouts(true);
+            // Ext.resumeLayouts(true);
             app.settingView = false;
-            app.viewChange();
-        }.bind(this), 400);
+            app._buildStore();
+        }.bind(this), 500);
     }
 });
 
