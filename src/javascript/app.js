@@ -257,10 +257,7 @@ Ext.define('custom-grid-with-deep-export', {
                             quickFilterPanelConfig: {
                                 portfolioItemTypes: this.portfolioItemTypes,
                                 modelName: currentModelName,
-                                whiteListFields: [
-                                    'Tags',
-                                    'Milestones'
-                                ]
+                                whiteListFields: ['Tags', 'Milestones', 'c_EnterpriseApprovalEA']
                             }
                         }
                     }
