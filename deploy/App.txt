@@ -1,13 +1,13 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>custom-grid-with-deep-export-1.4.8</title>
+    <title>custom-grid-with-deep-export-1.4.9</title>
     <!--  (c) 2019 Custom Agile.  All Rights Reserved. -->
-    <!--  Build Date: Thu Dec 12 2019 15:12:23 GMT-0500 (Eastern Standard Time) -->
+    <!--  Build Date: Wed Dec 18 2019 18:44:20 GMT-0500 (Eastern Standard Time) -->
 
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Thu Dec 12 2019 15:12:23 GMT-0500 (Eastern Standard Time)";
-        var CHECKSUM = 1609324080633;
+        var APP_BUILD_DATE = "Wed Dec 18 2019 18:44:20 GMT-0500 (Eastern Standard Time)";
+        var CHECKSUM = 1648147462360;
     </script>
 
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -164,7 +164,7 @@ Ext.define('CustomAgile.multilevelfilter.ToggleButton', {
 
 Ext.define('Utils.AncestorPiAppFilter', {
     alias: 'plugin.UtilsAncestorPiAppFilter',
-    version: "1.1.4",
+    version: "1.1.5",
     mixins: [
         'Ext.AbstractPlugin',
         'Rally.Messageable'
@@ -544,10 +544,12 @@ Ext.define('Utils.AncestorPiAppFilter', {
         }
 
         var filters = {};
-        _.each(this.filterControls, function (filterControl) {
-            let typeName = (filterControl.inlineFilterButton.modelNames) || 'unknown';
-            filters[typeName] = filterControl.inlineFilterButton.getFilters();
-        });
+        if (this.filterControls) {
+            _.each(this.filterControls, function (filterControl) {
+                let typeName = (filterControl.inlineFilterButton.modelNames) || 'unknown';
+                filters[typeName] = filterControl.inlineFilterButton.getFilters();
+            });
+        }
         return filters;
     },
 
@@ -756,13 +758,17 @@ Ext.define('Utils.AncestorPiAppFilter', {
 
     setCurrentView: function (view) {
         let scopeControl = this.renderArea.down('#ignoreScopeControl');
-        if (scopeControl) {
+        if (scopeControl && typeof view.ignoreProjectScope === 'boolean') {
             scopeControl.suspendEvents(false);
             scopeControl.setValue(view.ignoreProjectScope);
             scopeControl.resumeEvents();
         }
+
         this.setMultiLevelFilterStates(view.filterStates);
-        this._setPiSelector(view.piTypePath, view.pi);
+
+        if (view.piTypePath) {
+            this._setPiSelector(view.piTypePath, view.pi);
+        }
     },
 
     // Returns an object of states for all of the inline filters
@@ -773,10 +779,12 @@ Ext.define('Utils.AncestorPiAppFilter', {
         }
 
         var states = {};
-        _.each(this.filterControls, function (filterControl) {
-            let typeName = (filterControl.inlineFilterButton.modelNames) || 'unknown';
-            states[typeName] = filterControl.inlineFilterButton.getState();
-        });
+        if (this.filterControls) {
+            _.each(this.filterControls, function (filterControl) {
+                let typeName = (filterControl.inlineFilterButton.modelNames) || 'unknown';
+                states[typeName] = filterControl.inlineFilterButton.getState();
+            });
+        }
 
         return states;
     },
@@ -797,21 +805,62 @@ Ext.define('Utils.AncestorPiAppFilter', {
     // Used when applying a shared view to the filters
     setMultiLevelFilterStates: function (states) {
         if (!this._isSubscriber()) {
-            if (this.tabPanel) {
-                this.tabPanel.removeAll();
+            if (states) {
+                if (this.tabPanel) {
+                    this.tabPanel.removeAll();
+                }
+                for (let key in states) {
+                    if (states.hasOwnProperty(key)) {
+                        for (let i = 0;i < this.filterControls.length;i++) {
+                            let typeName = (this.filterControls[i].inlineFilterButton.modelNames) || 'unknown';
+                            if (typeName === key) {
+                                let filterBtn = this.filterControls[i].inlineFilterButton;
+                                filterBtn.applyState(states[key]);
+                            }
+                        }
+                    }
+                }
+                setTimeout(function () { this.tabPanel.setActiveTab(0); }.bind(this), 1500);
             }
-            for (let key in states) {
-                if (states.hasOwnProperty(key)) {
-                    for (let i = 0;i < this.filterControls.length;i++) {
-                        let typeName = (this.filterControls[i].inlineFilterButton.modelNames) || 'unknown';
-                        if (typeName === key) {
-                            let filterBtn = this.filterControls[i].inlineFilterButton;
-                            filterBtn.applyState(states[key]);
+            else {
+                this._clearAllFilters();
+            }
+        }
+    },
+
+    // On many apps, the multilevel filter replaces the original single inline filter
+    // control. Some users have saved views containing a filter state from this original
+    // filter. This method allows apps to try and apply those filters to the multilevel
+    // filter at the proper level in the porfolio hierarchy
+    mergeLegacyFilter: function (multiFilterStates, legacyFilterState, modelName) {
+        if (!this._isSubscriber() && multiFilterStates && legacyFilterState && modelName) {
+            for (let multiModel in multiFilterStates) {
+                if (multiFilterStates.hasOwnProperty(multiModel)) {
+                    if (multiModel === modelName) {
+                        try {
+                            let currentState = multiFilterStates[multiModel];
+                            if (legacyFilterState.matchType) {
+                                currentState.matchType = legacyFilterState.matchType;
+                            }
+                            if (typeof legacyFilterState.condition === 'string') {
+                                currentState.condition = legacyFilterState.condition;
+                            }
+                            if (legacyFilterState.quickFilters) {
+                                currentState.quickFilters = _.merge(currentState.quickFilters, legacyFilterState.quickFilters);
+                            }
+                            if (legacyFilterState.advancedFilters) {
+                                currentState.advancedFilters = _.merge(currentState.advancedFilters, legacyFilterState.advancedFilters);
+                            }
+                            if (legacyFilterState.quickFilterFields) {
+                                currentState.quickFilterFields = _.merge(currentState.quickFilterFields, legacyFilterState.quickFilterFields);
+                            }
+                        }
+                        catch (e) {
+                            console.error('Failed to merge legacy filter into multi-level filter');
                         }
                     }
                 }
             }
-            setTimeout(function () { this.tabPanel.setActiveTab(0); }.bind(this), 1500);
         }
     },
 
@@ -2382,6 +2431,7 @@ Ext.define('Rally.technicalservices.HierarchyExporter', {
     },
 
     records: undefined,
+    singleLevel: false,
 
     constructor: function (config) {
         this.mixins.observable.constructor.call(this, config);
@@ -2390,6 +2440,7 @@ Ext.define('Rally.technicalservices.HierarchyExporter', {
         this.fileName = config.fileName || "export.csv";
         this.columns = config.columns || [{ dataIndex: 'FormattedID', text: 'ID' }, { dataIndex: 'Name', text: 'Name' }];
         this.portfolioItemTypeObjects = config.portfolioItemTypeObjects || [];
+        this.singleLevel = typeof config.singleLevel === 'boolean' ? config.singleLevel : false;
     },
     setRecords: function (type, records) {
         this.records = (this.records || []).concat(records);
@@ -2408,7 +2459,9 @@ Ext.define('Rally.technicalservices.HierarchyExporter', {
         if (hierarchicalData.length > 0) {
             ancestorType = hierarchicalData[0]._type;
         }
-        columns = this._getAncestorTypeColumns(ancestorType).concat(columns);
+        if (!this.singleLevel) {
+            columns = this._getAncestorTypeColumns(ancestorType).concat(columns);
+        }
 
         var csv = this._transformDataToDelimitedString(exportData, columns);
 
@@ -2839,8 +2892,8 @@ Ext.define('Rally.technicalservices.HierarchyLoader', {
     },
 
     fetchRoot: function () {
-        var fetch = this.fetch.concat(this.getRequiredFetchFields(this.model));
-        this.fireEvent('statusupdate', "Loading artifacts");
+        var fetch = this.loadChildModels.length ? this.fetch.concat(this.getRequiredFetchFields(this.model)) : this.fetch;
+        this.fireEvent('statusupdate', "Loading artifacts in background. This may take a few minutes depending on result size...");
         var config = {
             model: this.model,
             fetch: fetch,
@@ -2884,6 +2937,14 @@ Ext.define('Rally.technicalservices.HierarchyLoader', {
                 chunks[idx].push(r.get('ObjectID'));
             }
         });
+
+        // If we only have 1 record, chunks ends up being [[], [123456789]]
+        // in fetchChunks, the method returns immediately when the length of
+        // the first array in the chunks array is 0. This is a quick and 
+        // dirty fix that minimizes breaking other functionality
+        if (chunks.length === 2 && chunks[0].length === 0) {
+            chunks = [chunks.pop()];
+        }
 
         return chunks;
     },
@@ -3144,6 +3205,9 @@ Ext.override(Rally.ui.gridboard.GridBoard, {
         app.settingView = true;
 
         if (app.ancestorFilterPlugin) {
+            if (view.filterStates) {
+                app.ancestorFilterPlugin.mergeLegacyFilter(view.filterStates, view, app.modelNames[0]);
+            }
             app.ancestorFilterPlugin.setCurrentView(view);
         }
 
@@ -3562,7 +3626,8 @@ Ext.define('custom-grid-with-deep-export', {
                                 modelName: currentModelName,
                                 whiteListFields: [
                                     'Tags',
-                                    'Milestones'
+                                    'Milestones',
+                                    'c_EnterpriseApprovalEA'
                                 ]
                             }
                         }
@@ -3626,6 +3691,7 @@ Ext.define('custom-grid-with-deep-export', {
         let combo = this.down('#sharedViewCombo');
         if (!this.settingView && combo) {
             combo.setValue('');
+            combo._clearParameters();
             combo.saveState();
         }
     },
@@ -3666,6 +3732,11 @@ Ext.define('custom-grid-with-deep-export', {
             }
 
             result = [{
+                text: 'Export Top Level Portfolio Item...',
+                handler: this._export,
+                scope: this,
+                currentModel
+            }, {
                 text: 'Export Portfolio Items...',
                 handler: this._export,
                 scope: this,
@@ -3815,7 +3886,8 @@ Ext.define('custom-grid-with-deep-export', {
             modelName,
             fileName: 'hierarchy-export.csv',
             columns,
-            portfolioItemTypeObjects: this.portfolioItemTypes
+            portfolioItemTypeObjects: this.portfolioItemTypes,
+            singleLevel: !(childModels && childModels.length)
 
         });
         exporter.on('exportupdate', this._showStatus, this);

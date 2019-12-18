@@ -93,8 +93,8 @@ Ext.define('Rally.technicalservices.HierarchyLoader', {
     },
 
     fetchRoot: function () {
-        var fetch = this.fetch.concat(this.getRequiredFetchFields(this.model));
-        this.fireEvent('statusupdate', "Loading artifacts");
+        var fetch = this.loadChildModels.length ? this.fetch.concat(this.getRequiredFetchFields(this.model)) : this.fetch;
+        this.fireEvent('statusupdate', "Loading artifacts in background. This may take a few minutes depending on result size...");
         var config = {
             model: this.model,
             fetch: fetch,
@@ -138,6 +138,14 @@ Ext.define('Rally.technicalservices.HierarchyLoader', {
                 chunks[idx].push(r.get('ObjectID'));
             }
         });
+
+        // If we only have 1 record, chunks ends up being [[], [123456789]]
+        // in fetchChunks, the method returns immediately when the length of
+        // the first array in the chunks array is 0. This is a quick and 
+        // dirty fix that minimizes breaking other functionality
+        if (chunks.length === 2 && chunks[0].length === 0) {
+            chunks = [chunks.pop()];
+        }
 
         return chunks;
     },

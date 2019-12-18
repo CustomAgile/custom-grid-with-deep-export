@@ -237,7 +237,8 @@ Ext.define('custom-grid-with-deep-export', {
                                 modelName: currentModelName,
                                 whiteListFields: [
                                     'Tags',
-                                    'Milestones'
+                                    'Milestones',
+                                    'c_EnterpriseApprovalEA'
                                 ]
                             }
                         }
@@ -301,6 +302,7 @@ Ext.define('custom-grid-with-deep-export', {
         let combo = this.down('#sharedViewCombo');
         if (!this.settingView && combo) {
             combo.setValue('');
+            combo._clearParameters();
             combo.saveState();
         }
     },
@@ -341,6 +343,11 @@ Ext.define('custom-grid-with-deep-export', {
             }
 
             result = [{
+                text: 'Export Top Level Portfolio Item...',
+                handler: this._export,
+                scope: this,
+                currentModel
+            }, {
                 text: 'Export Portfolio Items...',
                 handler: this._export,
                 scope: this,
@@ -490,7 +497,8 @@ Ext.define('custom-grid-with-deep-export', {
             modelName,
             fileName: 'hierarchy-export.csv',
             columns,
-            portfolioItemTypeObjects: this.portfolioItemTypes
+            portfolioItemTypeObjects: this.portfolioItemTypes,
+            singleLevel: !(childModels && childModels.length)
 
         });
         exporter.on('exportupdate', this._showStatus, this);

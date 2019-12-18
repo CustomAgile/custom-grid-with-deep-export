@@ -41,6 +41,9 @@ Ext.override(Rally.ui.gridboard.GridBoard, {
         app.settingView = true;
 
         if (app.ancestorFilterPlugin) {
+            if (view.filterStates) {
+                app.ancestorFilterPlugin.mergeLegacyFilter(view.filterStates, view, app.modelNames[0]);
+            }
             app.ancestorFilterPlugin.setCurrentView(view);
         }
 
