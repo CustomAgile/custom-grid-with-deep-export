@@ -1,3 +1,14 @@
+// If the server returns a 413 error, the error text is empty
+// Overriding it so we can show something that's actually helpful
+Ext.override(Rally.ui.notify.Notifier, {
+    showError: function (config) {
+        if (config && typeof config.message === 'string' && !config.message) {
+            return;
+        }
+        this.callParent(arguments);
+    }
+});
+
 Ext.override(Rally.ui.dialog.SharedViewDialog, {
     /* 
         Dialog and Combobox weren't refreshing after adding a new shared

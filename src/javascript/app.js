@@ -121,7 +121,14 @@ Ext.define('custom-grid-with-deep-export', {
             enableHierarchy: true,
             remoteSort: true,
             fetch,
-            context: dataContext
+            context: dataContext,
+            enablePostGet: true,
+            listeners: {
+                scope: this,
+                error: function () {
+                    this._showError('Error loading tree store. Try adjusting your filters to reduce the result set.');
+                }
+            },
         }).then({
             success: this._addGridboard,
             scope: this
@@ -205,7 +212,6 @@ Ext.define('custom-grid-with-deep-export', {
                 }
             ];
         }
-
         this.gridboard = gridArea.add({
             xtype: 'rallygridboard',
             context,
@@ -337,7 +343,7 @@ Ext.define('custom-grid-with-deep-export', {
             let idx = _.indexOf(piTypeNames, currentModel);
             let childModels = [];
             if (idx > 0) {
-                for (let i = idx;i > 0;i--) {
+                for (let i = idx; i > 0; i--) {
                     childModels.push(piTypeNames[i - 1]);
                 }
             }
