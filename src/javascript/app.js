@@ -78,6 +78,8 @@ Ext.define('custom-grid-with-deep-export', {
         Rally.data.wsapi.Proxy.superclass.timeout = 180000;
         Rally.data.wsapi.batch.Proxy.superclass.timeout = 180000;
 
+        this.down('#' + Utils.AncestorPiAppFilter.PANEL_RENDER_AREA_ID).on('resize', this.onResize, this);
+
         this.ancestorFilterPlugin = Ext.create('Utils.AncestorPiAppFilter', {
             ptype: 'UtilsAncestorPiAppFilter',
             pluginId: 'ancestorFilterPlugin',
@@ -138,7 +140,14 @@ Ext.define('custom-grid-with-deep-export', {
             enableHierarchy: true,
             remoteSort: true,
             fetch,
-            context: dataContext
+            context: dataContext,
+            enablePostGet: true,
+            listeners: {
+                scope: this,
+                error: function () {
+                    this._showError('Error loading tree store. Try adjusting your filters to reduce the result set.');
+                }
+            },
         }).then({
             success: this._addGridboard,
             scope: this
@@ -320,6 +329,7 @@ Ext.define('custom-grid-with-deep-export', {
         let combo = this.down('#sharedViewCombo');
         if (!this.settingView && combo) {
             combo.setValue('');
+            combo._clearParameters();
             combo.saveState();
         }
     },
@@ -354,12 +364,17 @@ Ext.define('custom-grid-with-deep-export', {
             let idx = _.indexOf(piTypeNames, currentModel);
             let childModels = [];
             if (idx > 0) {
-                for (let i = idx;i > 0;i--) {
+                for (let i = idx; i > 0; i--) {
                     childModels.push(piTypeNames[i - 1]);
                 }
             }
 
             result = [{
+                text: 'Export Top Level Portfolio Item...',
+                handler: this._export,
+                scope: this,
+                currentModel
+            }, {
                 text: 'Export Portfolio Items...',
                 handler: this._export,
                 scope: this,
@@ -509,7 +524,8 @@ Ext.define('custom-grid-with-deep-export', {
             modelName,
             fileName: 'hierarchy-export.csv',
             columns,
-            portfolioItemTypeObjects: this.portfolioItemTypes
+            portfolioItemTypeObjects: this.portfolioItemTypes,
+            singleLevel: !(childModels && childModels.length)
 
         });
         exporter.on('exportupdate', this._showStatus, this);

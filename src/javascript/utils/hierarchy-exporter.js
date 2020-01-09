@@ -6,6 +6,7 @@ Ext.define('Rally.technicalservices.HierarchyExporter', {
     },
 
     records: undefined,
+    singleLevel: false,
 
     constructor: function (config) {
         this.mixins.observable.constructor.call(this, config);
@@ -14,6 +15,7 @@ Ext.define('Rally.technicalservices.HierarchyExporter', {
         this.fileName = config.fileName || "export.csv";
         this.columns = config.columns || [{ dataIndex: 'FormattedID', text: 'ID' }, { dataIndex: 'Name', text: 'Name' }];
         this.portfolioItemTypeObjects = config.portfolioItemTypeObjects || [];
+        this.singleLevel = typeof config.singleLevel === 'boolean' ? config.singleLevel : false;
     },
     setRecords: function (type, records) {
         this.records = (this.records || []).concat(records);
@@ -32,7 +34,9 @@ Ext.define('Rally.technicalservices.HierarchyExporter', {
         if (hierarchicalData.length > 0) {
             ancestorType = hierarchicalData[0]._type;
         }
-        columns = this._getAncestorTypeColumns(ancestorType).concat(columns);
+        if (!this.singleLevel) {
+            columns = this._getAncestorTypeColumns(ancestorType).concat(columns);
+        }
 
         var csv = this._transformDataToDelimitedString(exportData, columns);
 
