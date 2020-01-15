@@ -92,7 +92,7 @@ Ext.override(Rally.ui.inlinefilter.PropertyFieldComboBox, {
      * @cfg {String[]} whiteListFields
      * field names that should be included from the filter row field combobox
      */
-    defaultWhiteListFields: ['Milestones', 'Tags']
+    defaultWhiteListFields: ['Milestones', 'Tags', 'c_EnterpriseApprovalEA']
 });
 
 Ext.override(Rally.ui.grid.TreeGrid, {
@@ -152,4 +152,11 @@ Ext.override(Rally.ui.grid.TreeGrid, {
 
         this.columnCfgs = columns;
     }
+});
+
+// We filter the list ourselves in the settings so we can include whitelisted fields
+Ext.override(Rally.ui.combobox.FieldComboBox, {
+    _isNotHidden: function (field) {
+        return true;
+    },
 });

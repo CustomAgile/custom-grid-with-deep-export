@@ -7,6 +7,7 @@ Ext.define('Rally.technicalservices.HierarchyExporter', {
 
     records: undefined,
     singleLevel: false,
+    status: undefined,
 
     constructor: function (config) {
         this.mixins.observable.constructor.call(this, config);
@@ -16,11 +17,16 @@ Ext.define('Rally.technicalservices.HierarchyExporter', {
         this.columns = config.columns || [{ dataIndex: 'FormattedID', text: 'ID' }, { dataIndex: 'Name', text: 'Name' }];
         this.portfolioItemTypeObjects = config.portfolioItemTypeObjects || [];
         this.singleLevel = typeof config.singleLevel === 'boolean' ? config.singleLevel : false;
+        this.status = config.status || { loadingFailed: false, cancelLoad: false };
     },
     setRecords: function (type, records) {
         this.records = (this.records || []).concat(records);
     },
     export: function () {
+
+        if (this._failureOrCancel()) {
+            return;
+        }
 
         this.fireEvent('exportupdate', "Preparing export data");
 
@@ -39,6 +45,10 @@ Ext.define('Rally.technicalservices.HierarchyExporter', {
         }
 
         var csv = this._transformDataToDelimitedString(exportData, columns);
+
+        if (this._failureOrCancel()) {
+            return;
+        }
 
         this.saveCSVToFile(csv, this.fileName);
         this.fireEvent('exportcomplete');
@@ -370,5 +380,8 @@ Ext.define('Rally.technicalservices.HierarchyExporter', {
     },
     destroyClickedElement: function (event) {
         document.body.removeChild(event.target);
+    },
+    _failureOrCancel() {
+        return this.status.loadingFailed || this.status.cancelLoad;
     }
 });
