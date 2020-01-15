@@ -1,13 +1,13 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>custom-grid-with-deep-export-1.4.10</title>
+    <title>custom-grid-with-deep-export-1.4.11</title>
     <!--  (c) 2019 Custom Agile.  All Rights Reserved. -->
-    <!--  Build Date: Wed Jan 08 2020 11:27:28 GMT-0500 (Eastern Standard Time) -->
+    <!--  Build Date: Wed Jan 15 2020 13:00:23 GMT+0100 (Central European Standard Time) -->
 
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed Jan 08 2020 11:27:28 GMT-0500 (Eastern Standard Time)";
-        var CHECKSUM = 1733316041075;
+        var APP_BUILD_DATE = "Wed Jan 15 2020 13:00:23 GMT+0100 (Central European Standard Time)";
+        var CHECKSUM = 1840492271310;
     </script>
 
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -2464,6 +2464,32 @@ Ext.define('Rally.technicalservices.Logger', {
 
 });
 
+/**
+ * Overrides to allow a store load to the canceled which will abort loading
+ * any subsequent pages and not invoke the load callback.
+ */
+Ext.override(Rally.data.wsapi.TreeStore, {
+
+    loadCanceled: false,
+
+    cancelLoad: function () {
+        this.loadCanceled = true;
+    },
+
+    load: function (options) {
+        this.loadCanceled = false;
+        this.callParent(arguments);
+    },
+
+    onProxyLoad: function () {
+        if (this.loadCanceled) {
+            this.loadCanceled = false;
+            return;
+        }
+        this.callParent(arguments);
+    }
+});
+
 Ext.define('Rally.technicalservices.HierarchyExporter', {
 
     logger: new Rally.technicalservices.Logger(),
@@ -2473,6 +2499,7 @@ Ext.define('Rally.technicalservices.HierarchyExporter', {
 
     records: undefined,
     singleLevel: false,
+    status: undefined,
 
     constructor: function (config) {
         this.mixins.observable.constructor.call(this, config);
@@ -2482,11 +2509,16 @@ Ext.define('Rally.technicalservices.HierarchyExporter', {
         this.columns = config.columns || [{ dataIndex: 'FormattedID', text: 'ID' }, { dataIndex: 'Name', text: 'Name' }];
         this.portfolioItemTypeObjects = config.portfolioItemTypeObjects || [];
         this.singleLevel = typeof config.singleLevel === 'boolean' ? config.singleLevel : false;
+        this.status = config.status || { loadingFailed: false, cancelLoad: false };
     },
     setRecords: function (type, records) {
         this.records = (this.records || []).concat(records);
     },
     export: function () {
+
+        if (this._failureOrCancel()) {
+            return;
+        }
 
         this.fireEvent('exportupdate', "Preparing export data");
 
@@ -2505,6 +2537,10 @@ Ext.define('Rally.technicalservices.HierarchyExporter', {
         }
 
         var csv = this._transformDataToDelimitedString(exportData, columns);
+
+        if (this._failureOrCancel()) {
+            return;
+        }
 
         this.saveCSVToFile(csv, this.fileName);
         this.fireEvent('exportcomplete');
@@ -2836,6 +2872,9 @@ Ext.define('Rally.technicalservices.HierarchyExporter', {
     },
     destroyClickedElement: function (event) {
         document.body.removeChild(event.target);
+    },
+    _failureOrCancel() {
+        return this.status.loadingFailed || this.status.cancelLoad;
     }
 });
 Ext.define('Rally.technicalservices.HierarchyLoader', {
@@ -2853,6 +2892,7 @@ Ext.define('Rally.technicalservices.HierarchyLoader', {
     fetch: undefined,
     childModels: undefined,
     sorters: undefined,
+    status: undefined,
 
     maxParallelCalls: 6,
 
@@ -2864,19 +2904,20 @@ Ext.define('Rally.technicalservices.HierarchyLoader', {
         this.filters = config.filters || [];
         this.loadChildModels = config.loadChildModels || [];
         this.sorters = config.sorters || [];
+        this.status = config.status || { loadingFailed: false, cancelLoad: false }
     },
     load: function () {
 
         if (!this.model) {
-            this.fireEvent('hierarchyloaderror', "No model specified.");
+            this.fireEvent('hierarchyloaderror', "No model specified.", this.status);
             return;
         }
         if (this.portfolioItemTypes.length === 0) {
-            this.fireEvent('hierarchyloaderror', "Portfolio Item Types not initialized.");
+            this.fireEvent('hierarchyloaderror', "Portfolio Item Types not initialized.", this.status);
             return;
         }
         if (!(this.loadChildModels instanceof Array)) {
-            this.fireEvent('hierarchyloaderror', "No child models specified.");
+            this.fireEvent('hierarchyloaderror', "No child models specified.", this.status);
             return;
         }
 
@@ -2887,15 +2928,22 @@ Ext.define('Rally.technicalservices.HierarchyLoader', {
 
         Deft.Chain.pipeline(fns, this).then({
             success: function () {
+                if (this._failureOrCancel()) {
+                    return;
+                }
                 this.fireEvent('hierarchyloadcomplete');
             },
             failure: function (msg) {
-                this.fireEvent('hierarchyloaderror', msg);
+                this.fireEvent('hierarchyloaderror', msg, this.status);
             },
             scope: this
         });
     },
     fetchNextLevel: function (args) {
+        if (this._failureOrCancel()) {
+            return [];
+        }
+
         this.logger.log('fetchNextLevel', args, args && args.length);
 
         if (!args) {
@@ -2954,6 +3002,10 @@ Ext.define('Rally.technicalservices.HierarchyLoader', {
         return this.fetchChunks(type, fetch, chunks, "Parent.ObjectID", Ext.String.format("Please Wait... Loading Children for {0} Portfolio Items", parentRecords.length));
     },
     _getChunks: function (parentRecords, countField, countFieldAttribute) {
+        if (this._failureOrCancel()) {
+            return [];
+        }
+
         this.logger.log("_getChunks", parentRecords, countField, countFieldAttribute);
 
         var chunks = [],
@@ -3048,6 +3100,10 @@ Ext.define('Rally.technicalservices.HierarchyLoader', {
     //     return this.fetchChunks(type, fetch, chunks, "WorkProduct.ObjectID", Ext.String.format("Please Wait... Loading Tasks for {0} User Stories", parentRecords.length));
     // },
     fetchChunks: function (type, fetch, chunks, chunkProperty, statusString) {
+        if (this._failureOrCancel()) {
+            return [];
+        }
+
         this.logger.log('fetchChunks', fetch, chunkProperty, chunks);
 
         if (!chunks || chunks.length === 0) {
@@ -3199,8 +3255,43 @@ Ext.define('Rally.technicalservices.HierarchyLoader', {
                 return groupResults;
             });
         }, []);
+    },
+    _failureOrCancel() {
+        return this.status.loadingFailed || this.status.cancelLoad;
     }
+});
 
+// If the server returns a 413 error, the error text is empty
+// Overriding it so we can show something that's actually helpful
+Ext.override(Rally.ui.notify.Notifier, {
+    showError: function (config) {
+        if (config && typeof config.message === 'string' && !config.message) {
+            return;
+        }
+        this.callParent(arguments);
+    }
+});
+
+Ext.override(Rally.ui.dialog.SharedViewDialog, {
+    /* 
+        Dialog and Combobox weren't refreshing after adding a new shared
+        view, so here we are 
+    */
+    _onCreate: function (dialog, record) {
+        if (this.grid) {
+            this.grid.getStore().reload();
+        }
+        let newPrefRef = record.get('_ref');
+        let combobox = Rally.getApp().down('#sharedViewCombo');
+
+        if (newPrefRef && combobox) {
+            combobox.getStore().reload();
+            combobox.setValue(newPrefRef);
+            combobox.saveState();
+        }
+
+        this.down('#doneButton').focus();
+    },
 });
 
 // If the server returns a 413 error, the error text is empty
@@ -3297,7 +3388,7 @@ Ext.override(Rally.ui.inlinefilter.PropertyFieldComboBox, {
      * @cfg {String[]} whiteListFields
      * field names that should be included from the filter row field combobox
      */
-    defaultWhiteListFields: ['Milestones', 'Tags']
+    defaultWhiteListFields: ['Milestones', 'Tags', 'c_EnterpriseApprovalEA']
 });
 
 Ext.override(Rally.ui.grid.TreeGrid, {
@@ -3358,16 +3449,23 @@ Ext.override(Rally.ui.grid.TreeGrid, {
         this.columnCfgs = columns;
     }
 });
-(function() {
+
+// We filter the list ourselves in the settings so we can include whitelisted fields
+Ext.override(Rally.ui.combobox.FieldComboBox, {
+    _isNotHidden: function (field) {
+        return true;
+    },
+});
+(function () {
     var Ext = window.Ext4 || window.Ext;
 
-    var getHiddenFieldConfig = function(name) {
+    var getHiddenFieldConfig = function (name) {
         return {
             name: name,
             xtype: 'rallytextfield',
             hidden: true,
             handlesEvents: {
-                typeselected: function(type) {
+                typeselected: function (type) {
                     this.setValue(null);
                 }
             }
@@ -3382,58 +3480,124 @@ Ext.override(Rally.ui.grid.TreeGrid, {
             'Rally.ui.CheckboxField'
         ],
 
-        getFields: function() {
-
-            var type_filters = Rally.data.wsapi.Filter.or([
-                { property: 'TypePath', value: 'HierarchicalRequirement' },
-                { property: 'TypePath', operator: 'contains', value: 'PortfolioItem/' }
-            ]);
+        getFields: function () {
 
             return [{
-                    name: 'type',
-                    xtype: 'rallycombobox',
-                    allowBlank: false,
-                    autoSelect: false,
-                    shouldRespondToScopeChange: true,
-                    initialValue: 'HierarchicalRequirement',
-                    storeConfig: {
-                        model: Ext.identityFn('TypeDefinition'),
-                        sorters: [{ property: 'DisplayName' }],
-                        fetch: ['DisplayName', 'ElementName', 'TypePath', 'Parent', 'UserListable'],
-                        //filters: type_filters,
-                        filters: [{ property: 'UserListable', value: true }],
-                        autoLoad: false,
-                        remoteSort: false,
-                        remoteFilter: true
+                name: 'type',
+                xtype: 'rallycombobox',
+                width: 350,
+                allowBlank: false,
+                autoSelect: false,
+                shouldRespondToScopeChange: true,
+                initialValue: 'HierarchicalRequirement',
+                storeConfig: {
+                    model: Ext.identityFn('TypeDefinition'),
+                    context: { project: null },
+                    sorters: [{ property: 'DisplayName' }],
+                    fetch: ['DisplayName', 'ElementName', 'TypePath', 'Parent', 'UserListable'],
+                    filters: [{ property: 'UserListable', value: true }],
+                    autoLoad: false,
+                    remoteSort: false,
+                    remoteFilter: true
+                },
+                displayField: 'DisplayName',
+                valueField: 'TypePath',
+                listeners: {
+                    select: function (combo) {
+                        combo.fireEvent('typeselected', combo.getRecord().get('TypePath'), combo.context);
                     },
-                    displayField: 'DisplayName',
-                    valueField: 'TypePath',
-                    listeners: {
-                        select: function(combo) {
-                            combo.fireEvent('typeselected', combo.getRecord().get('TypePath'), combo.context);
+                    ready: function (combo) {
+                        combo.fireEvent('typeselected', combo.getRecord().get('TypePath'), combo.context);
+                    }
+                },
+                bubbleEvents: ['typeselected'],
+                readyEvent: 'ready',
+                handlesEvents: {
+                    projectscopechanged: function (context) {
+                        this.refreshWithNewContext(context);
+                    }
+                }
+            },
+            { type: 'query' },
+            {
+                name: 'showControls',
+                xtype: 'rallycheckboxfield',
+                fieldLabel: 'Show Control Bar'
+            },
+            {
+                name: 'enableUrlSharing',
+                xtype: 'rallycheckboxfield',
+                fieldLabel: 'Enable URL Sharing of Saved Views'
+            },
+            {
+                name: 'additionalFilterField',
+                xtype: 'rallyfieldcombobox',
+                plugins: ['rallyfieldvalidationui'],
+                fieldLabel: 'Additional Filter Dropdown',
+                readyEvent: 'ready',
+                allowBlank: false,
+                allowNoEntry: true,
+                noEntryText: '-- None --',
+                validateOnChange: false,
+                validateOnBlur: false,
+                width: 350,
+                bubbleEvents: ['fieldselected'],
+                handlesEvents: {
+                    typeselected: function (models, context) {
+                        var type = Ext.Array.from(models)[0];
+                        if (type) {
+                            try {
+                                this.refreshWithNewModelType(type, context);
+                            }
+                            catch (e) {
+                                this.store.removeAll();
+                                this.reset();
+                            }
                         }
-                    },
-                    bubbleEvents: ['typeselected'],
-                    readyEvent: 'ready',
-                    handlesEvents: {
-                        projectscopechanged: function(context) {
-                            this.refreshWithNewContext(context);
+                        else {
+                            this.store.removeAll();
+                            this.reset();
                         }
                     }
                 },
-                { type: 'query' },
-                {
-                    name: 'showControls',
-                    xtype: 'rallycheckboxfield',
-                    fieldLabel: 'Show Control Bar'
-                },
-                {
-                    name: 'enableUrlSharing',
-                    xtype: 'rallycheckboxfield',
-                    fieldLabel: 'Enable URL Sharing of Saved Views'
-                },
-                getHiddenFieldConfig('columnNames'),
-                getHiddenFieldConfig('order')
+                // bubbleEvents: ['fieldselected'],
+                listeners: {
+                    change: function (combo) {
+                        if (combo.getRecord()) {
+                            combo.fireEvent('fieldselected', combo.getDisplayValue());
+                        }
+                    },
+                    ready: function (combo) {
+                        combo.store.filterBy(function (record) {
+                            var field = record.get('fieldDefinition'),
+                                attr = field.attributeDefinition,
+                                whiteList = ['c_EnterpriseApprovalEA'];
+                            // console.log(field.name, field ? field.isConstrained() : '');
+                            return record.get('name') === '-- None --' || (attr && field.isConstrained() && field.hasAllowedValues() && (!attr.Hidden || _.contains(whiteList, field.name)) && (((attr.AttributeType !== 'COLLECTION' && !field.isMultiValueCustom()) &&
+                                !field.isMappedFromArtifact) || _.contains(whiteList, field.name)));
+                        });
+                        var fields = Ext.Array.map(combo.store.getRange(), function (record) {
+                            return record.get(combo.getValueField());
+                        });
+
+                        if (combo.getDisplayValue() !== '-- None --' && !Ext.Array.contains(fields, combo.getValue())) {
+                            combo.setValue(fields[0]);
+                        }
+                    }
+                }
+            },
+            getHiddenFieldConfig('columnNames'),
+            getHiddenFieldConfig('order'),
+            {
+                name: 'additionalFilterLabel',
+                xtype: 'rallytextfield',
+                hidden: true,
+                handlesEvents: {
+                    fieldselected: function (fieldName) {
+                        this.setValue(fieldName);
+                    }
+                }
+            }
             ];
         }
     });
@@ -3448,6 +3612,14 @@ Ext.define('custom-grid-with-deep-export', {
         align: 'stretch'
     },
     items: [{
+        id: 'additional-filter-container',
+        xtype: 'container',
+        layout: {
+            type: 'hbox',
+            align: 'middle',
+            defaultMargins: '0 10 10 0',
+        }
+    }, {
         id: Utils.AncestorPiAppFilter.RENDER_AREA_ID,
         xtype: 'container',
         layout: {
@@ -3500,8 +3672,36 @@ Ext.define('custom-grid-with-deep-export', {
     launch() {
         Rally.data.wsapi.Proxy.superclass.timeout = 180000;
         Rally.data.wsapi.batch.Proxy.superclass.timeout = 180000;
+        this.settingView = true;
 
         this.down('#' + Utils.AncestorPiAppFilter.PANEL_RENDER_AREA_ID).on('resize', this.onResize, this);
+
+        this.gridArea = this.down('#grid-area');
+        let type = this.getSetting('type');
+        let additionalFilter = this.getSetting('additionalFilterField');
+
+        if (type && additionalFilter) {
+            let label = this.getSetting('additionalFilterLabel');
+            if (!label) {
+                label = additionalFilter.indexOf('c_') === 0 ? additionalFilter.substring(2) : additionalFilter;
+            }
+            this.down('#' + Utils.AncestorPiAppFilter.RENDER_AREA_ID).add({
+                xtype: 'rallyfieldvaluecombobox',
+                itemId: 'additionalFilterCombo',
+                model: type,
+                field: additionalFilter,
+                labelStyle: 'font-size: medium',
+                allowBlank: false,
+                allowNoEntry: false,
+                defaultSelectionPosition: 'first',
+                fieldLabel: label,
+                labelWidth: label.length * 10,
+                listeners: {
+                    scope: this,
+                    change: this.viewChange
+                }
+            });
+        }
 
         this.ancestorFilterPlugin = Ext.create('Utils.AncestorPiAppFilter', {
             ptype: 'UtilsAncestorPiAppFilter',
@@ -3526,6 +3726,7 @@ Ext.define('custom-grid-with-deep-export', {
                                 select: this.viewChange,
                                 change: this.viewChange
                             });
+                            this.settingView = false;
                             this.viewChange();
                         },
                         failure(msg) {
@@ -3541,14 +3742,21 @@ Ext.define('custom-grid-with-deep-export', {
     // Usual monkey business to size gridboards
     onResize() {
         this.callParent(arguments);
-        let gridArea = this.down('#grid-area');
         let gridboard = this.down('rallygridboard');
-        if (gridArea && gridboard) {
-            gridboard.setHeight(gridArea.getHeight());
+        if (this.gridArea && gridboard) {
+            gridboard.setHeight(this.gridArea.getHeight());
         }
     },
 
     _buildStore() {
+        // This object helps us cancel a load that is waiting for filters to be returned
+        let thisStatus = { loadingFailed: false, cancelLoad: false };
+        this._cancelPreviousLoad(thisStatus);
+
+        this._setLoading(true);
+        this.gridArea.removeAll(true);
+        this._addCancelBtn(false);
+
         this.modelNames = [this.getSetting('type')];
         this.logger.log('_buildStore', this.modelNames);
         let fetch = ['FormattedID', 'Name'];
@@ -3558,6 +3766,7 @@ Ext.define('custom-grid-with-deep-export', {
         }
 
         Ext.create('Rally.data.wsapi.TreeStoreBuilder').build({
+            id: 'gridboardStore',
             models: this.modelNames,
             enableHierarchy: true,
             remoteSort: true,
@@ -3571,21 +3780,17 @@ Ext.define('custom-grid-with-deep-export', {
                 }
             },
         }).then({
-            success: this._addGridboard,
+            success: (store) => {
+                if (thisStatus.loadingFailed || thisStatus.cancelLoad) {
+                    this.setLoading(false);
+                    return;
+                }
+                this._addGridboard(store, thisStatus);
+            },
             scope: this
         });
     },
-    async _addGridboard(store) {
-
-        var gridboardStore = Ext.getStore('gridboardStore');
-        if (gridboardStore) {
-            gridboardStore.cancelLoad();
-        }
-
-        this.loadingFailed = false;
-        let gridArea = this.down('#grid-area');
-        gridArea.setLoading(true);
-        gridArea.removeAll(true);
+    async _addGridboard(store, thisStatus) {
 
         let currentModelName = this.modelNames[0];
         let stateIdForType = Ext.String.startsWith(currentModelName.toLowerCase(), 'portfolioitem') ? 'CA.customgridportfolioitems' : 'CA.customgridothers';
@@ -3598,16 +3803,32 @@ Ext.define('custom-grid-with-deep-export', {
 
         let ancestorAndMultiFilters = await this.ancestorFilterPlugin.getAllFiltersForType(currentModelName, true).catch((e) => {
             Rally.ui.notify.Notifier.showError({ message: (e.message || e) });
-            this.loadingFailed = true;
+            thisStatus.loadingFailed = true;
         });
 
-        if (this.loadingFailed) {
-            gridArea.setLoading(false);
+        if (thisStatus.loadingFailed) {
+            this._setLoading(false);
+            return;
+        }
+
+        if (thisStatus.cancelLoad) {
             return;
         }
 
         if (ancestorAndMultiFilters) {
             filters = filters.concat(ancestorAndMultiFilters);
+        }
+
+        let additionalFilter = this.getSetting('additionalFilterField');
+
+        if (additionalFilter) {
+            let additionalFilterValue = this.down('#additionalFilterCombo').getValue();
+            if (additionalFilterValue || typeof additionalFilterValue === 'string') {
+                filters.push(new Rally.data.wsapi.Filter({
+                    property: additionalFilter,
+                    value: additionalFilterValue
+                }));
+            }
         }
 
         this.logger.log('_addGridboard', store);
@@ -3653,19 +3874,20 @@ Ext.define('custom-grid-with-deep-export', {
                 }
             ];
         }
-        this.gridboard = gridArea.add({
+
+        this.gridboard = this.gridArea.add({
             xtype: 'rallygridboard',
             context,
             stateful: true,
             stateId: stateIdForType,
             modelNames: this.modelNames,
             toggleState: 'grid',
-            height: gridArea.getHeight(),
+            height: this.gridArea.getHeight(),
             listeners: {
                 scope: this,
                 viewchange: this.viewChange,
                 load: function () {
-                    this.down('#grid-area').setLoading(false);
+                    this._setLoading(false);
                 }
             },
             plugins: [
@@ -3682,11 +3904,7 @@ Ext.define('custom-grid-with-deep-export', {
                             quickFilterPanelConfig: {
                                 portfolioItemTypes: this.portfolioItemTypes,
                                 modelName: currentModelName,
-                                whiteListFields: [
-                                    'Tags',
-                                    'Milestones',
-                                    'c_EnterpriseApprovalEA'
-                                ]
+                                whiteListFields: ['Tags', 'Milestones', 'c_EnterpriseApprovalEA']
                             }
                         }
                     }
@@ -3724,7 +3942,6 @@ Ext.define('custom-grid-with-deep-export', {
             gridConfig: {
                 store,
                 storeConfig: {
-                    storeId: 'gridboardStore',
                     filters,
                     context: dataContext,
                     enablePostGet: true
@@ -3735,6 +3952,21 @@ Ext.define('custom-grid-with-deep-export', {
                 features: [summaryRowFeature]
             }
         });
+    },
+
+    _cancelPreviousLoad: function (newStatus) {
+        if (this.globalStatus) {
+            this.globalStatus.cancelLoad = true;
+        }
+        this.globalStatus = newStatus;
+
+        // If there is a current chart store, force it to stop loading pages
+        // Note that recreating the grid will then create a new chart store with
+        // the same store ID.
+        var gridboardStore = Ext.getStore('gridboardStore');
+        if (gridboardStore) {
+            gridboardStore.cancelLoad();
+        }
     },
 
     viewChange() {
@@ -3756,6 +3988,20 @@ Ext.define('custom-grid-with-deep-export', {
 
     getModelScopedStateId(modelName, id) {
         return this.getContext().getScopedStateId(`${modelName}-${id}`);
+    },
+
+    _addCancelBtn(hidden) {
+        let width = this.gridArea.getEl().getWidth();
+        let height = this.gridArea.getEl().getHeight();
+        this.gridArea.add({
+            xtype: 'rallybutton',
+            text: 'cancel',
+            itemId: 'cancelBtn',
+            id: 'cancelBtn',
+            style: `z-index:19500;position:absolute;top:${Math.round(height / 2) + 50}px;left:${Math.round(width / 2) - 30}px;width:60px;height:25px;`,
+            hidden,
+            handler: this._cancelLoading
+        });
     },
 
     _getExportMenuItems() {
@@ -3854,7 +4100,11 @@ Ext.define('custom-grid-with-deep-export', {
         return _.map(this.portfolioItemTypes, type => type.get('TypePath').toLowerCase());
     },
 
-    _showError(msg) {
+    _showError(msg, status) {
+        if (status) {
+            status.loadingFailed = true;
+        }
+        this._setLoading(false);
         Rally.ui.notify.Notifier.showError({ message: msg });
     },
     _showStatus(message) {
@@ -3870,6 +4120,16 @@ Ext.define('custom-grid-with-deep-export', {
             Rally.ui.notify.Notifier.hide();
         }
     },
+    _setLoading(message, target) {
+        if (!message) {
+            this.gridArea.down('#cancelBtn').hide();
+        }
+        if (target) {
+            target.setLoading(message);
+        } else {
+            this.gridArea.setLoading(message);
+        }
+    },
     _getExportColumns() {
         let grid = this.down('rallygridboard').getGridOrBoard();
         if (grid) {
@@ -3883,21 +4143,8 @@ Ext.define('custom-grid-with-deep-export', {
         }
         return [];
     },
-    async _getExportFilters() {
-        this.loadingFailed = false;
-
-        let grid = this.down('rallygridboard'),
-            filters = [],
-            query = this.getSetting('query');
-
-        if (grid.currentCustomFilter && grid.currentCustomFilter.filters) {
-            // Concat any current custom filters (don't assign as we don't want to modify the currentCustomFilter array)
-            filters = filters.concat(grid.currentCustomFilter.filters);
-        }
-
-        if (query) {
-            filters.push(Rally.data.wsapi.Filter.fromQueryString(query));
-        }
+    async _getExportFilters(status) {
+        let filters = this.getSetting('query') ? [Rally.data.wsapi.Filter.fromQueryString(this.getSetting('query'))] : [];
 
         let timeboxScope = this.getContext().getTimeboxScope();
         if (timeboxScope && timeboxScope.isApplicable(grid.getGridOrBoard().store.model)) {
@@ -3906,11 +4153,23 @@ Ext.define('custom-grid-with-deep-export', {
 
         let ancestorAndMultiFilters = await this.ancestorFilterPlugin.getAllFiltersForType(this.modelNames[0], true).catch((e) => {
             Rally.ui.notify.Notifier.showError({ message: (e.message || e) });
-            this.loadingFailed = true;
+            status.loadingFailed = true;
         });
 
         if (ancestorAndMultiFilters) {
             filters = filters.concat(ancestorAndMultiFilters);
+        }
+
+        let additionalFilter = this.getSetting('additionalFilterField');
+
+        if (additionalFilter) {
+            let additionalFilterValue = this.down('#additionalFilterCombo').getValue();
+            if (additionalFilterValue || typeof additionalFilterValue === 'string') {
+                filters.push(new Rally.data.wsapi.Filter({
+                    property: additionalFilter,
+                    value: additionalFilterValue
+                }));
+            }
         }
 
         return filters;
@@ -3926,11 +4185,19 @@ Ext.define('custom-grid-with-deep-export', {
         return this.down('rallygridboard').getGridOrBoard().getStore().getSorters();
     },
     async _export(args) {
+        this._setLoading('Getting filters for export...');
+        this.gridArea.down('#cancelBtn').show();
+
+        // This object helps us cancel a load that is waiting for filters to be returned
+        let thisStatus = { loadingFailed: false, cancelLoad: false };
+        this._cancelPreviousLoad(thisStatus);
+
         let columns = this._getExportColumns();
         let fetch = this._getExportFetch();
-        let filters = await this._getExportFilters();
+        let filters = await this._getExportFilters(thisStatus);
 
-        if (this.loadingFailed) {
+        if (thisStatus.loadingFailed) {
+            this._showError('Error loading filters for export. Please try again.');
             return;
         }
 
@@ -3940,17 +4207,20 @@ Ext.define('custom-grid-with-deep-export', {
 
         this.logger.log('_export', fetch, args, columns, filters.toString(), childModels, sorters);
 
+        // this._setLoading('Loading data for export...');
+
         let exporter = Ext.create('Rally.technicalservices.HierarchyExporter', {
             modelName,
             fileName: 'hierarchy-export.csv',
             columns,
             portfolioItemTypeObjects: this.portfolioItemTypes,
-            singleLevel: !(childModels && childModels.length)
+            singleLevel: !(childModels && childModels.length),
+            status: thisStatus
 
         });
-        exporter.on('exportupdate', this._showStatus, this);
+        exporter.on('exportupdate', this._setLoading, this);
         exporter.on('exporterror', this._showError, this);
-        exporter.on('exportcomplete', this._showStatus, this);
+        exporter.on('exportcomplete', this._onExportComplete, this);
 
         let dataContext = this.getContext().getDataContext();
         if (this.searchAllProjects()) {
@@ -3964,13 +4234,29 @@ Ext.define('custom-grid-with-deep-export', {
             loadChildModels: childModels,
             portfolioItemTypes: this.portfolioItemTypes,
             context: dataContext,
-            enablePostGet: true
+            enablePostGet: true,
+            status: thisStatus
         });
-        hierarchyLoader.on('statusupdate', this._showStatus, this);
+        hierarchyLoader.on('statusupdate', this._setLoading, this);
         hierarchyLoader.on('hierarchyloadartifactsloaded', exporter.setRecords, exporter);
         hierarchyLoader.on('hierarchyloadcomplete', exporter.export, exporter);
         hierarchyLoader.on('hierarchyloaderror', this._showError, this);
         hierarchyLoader.load();
+    },
+    _onExportComplete(message) {
+        this._setLoading(false);
+        this._showStatus(message);
+    },
+    _cancelLoading: function () {
+        let app = Rally.getApp();
+        if (app.globalStatus) {
+            app.globalStatus.cancelLoad = true;
+        }
+        var gridboardStore = Ext.getStore('gridboardStore');
+        if (gridboardStore) {
+            gridboardStore.cancelLoad();
+        }
+        app._setLoading(false);
     },
     getHeight() {
         let el = this.getEl();

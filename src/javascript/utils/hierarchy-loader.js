@@ -13,6 +13,7 @@ Ext.define('Rally.technicalservices.HierarchyLoader', {
     fetch: undefined,
     childModels: undefined,
     sorters: undefined,
+    status: undefined,
 
     maxParallelCalls: 6,
 
@@ -24,19 +25,20 @@ Ext.define('Rally.technicalservices.HierarchyLoader', {
         this.filters = config.filters || [];
         this.loadChildModels = config.loadChildModels || [];
         this.sorters = config.sorters || [];
+        this.status = config.status || { loadingFailed: false, cancelLoad: false }
     },
     load: function () {
 
         if (!this.model) {
-            this.fireEvent('hierarchyloaderror', "No model specified.");
+            this.fireEvent('hierarchyloaderror', "No model specified.", this.status);
             return;
         }
         if (this.portfolioItemTypes.length === 0) {
-            this.fireEvent('hierarchyloaderror', "Portfolio Item Types not initialized.");
+            this.fireEvent('hierarchyloaderror', "Portfolio Item Types not initialized.", this.status);
             return;
         }
         if (!(this.loadChildModels instanceof Array)) {
-            this.fireEvent('hierarchyloaderror', "No child models specified.");
+            this.fireEvent('hierarchyloaderror', "No child models specified.", this.status);
             return;
         }
 
@@ -47,15 +49,22 @@ Ext.define('Rally.technicalservices.HierarchyLoader', {
 
         Deft.Chain.pipeline(fns, this).then({
             success: function () {
+                if (this._failureOrCancel()) {
+                    return;
+                }
                 this.fireEvent('hierarchyloadcomplete');
             },
             failure: function (msg) {
-                this.fireEvent('hierarchyloaderror', msg);
+                this.fireEvent('hierarchyloaderror', msg, this.status);
             },
             scope: this
         });
     },
     fetchNextLevel: function (args) {
+        if (this._failureOrCancel()) {
+            return [];
+        }
+
         this.logger.log('fetchNextLevel', args, args && args.length);
 
         if (!args) {
@@ -114,6 +123,10 @@ Ext.define('Rally.technicalservices.HierarchyLoader', {
         return this.fetchChunks(type, fetch, chunks, "Parent.ObjectID", Ext.String.format("Please Wait... Loading Children for {0} Portfolio Items", parentRecords.length));
     },
     _getChunks: function (parentRecords, countField, countFieldAttribute) {
+        if (this._failureOrCancel()) {
+            return [];
+        }
+
         this.logger.log("_getChunks", parentRecords, countField, countFieldAttribute);
 
         var chunks = [],
@@ -208,6 +221,10 @@ Ext.define('Rally.technicalservices.HierarchyLoader', {
     //     return this.fetchChunks(type, fetch, chunks, "WorkProduct.ObjectID", Ext.String.format("Please Wait... Loading Tasks for {0} User Stories", parentRecords.length));
     // },
     fetchChunks: function (type, fetch, chunks, chunkProperty, statusString) {
+        if (this._failureOrCancel()) {
+            return [];
+        }
+
         this.logger.log('fetchChunks', fetch, chunkProperty, chunks);
 
         if (!chunks || chunks.length === 0) {
@@ -359,6 +376,8 @@ Ext.define('Rally.technicalservices.HierarchyLoader', {
                 return groupResults;
             });
         }, []);
+    },
+    _failureOrCancel() {
+        return this.status.loadingFailed || this.status.cancelLoad;
     }
-
 });

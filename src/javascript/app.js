@@ -7,6 +7,14 @@ Ext.define('custom-grid-with-deep-export', {
         align: 'stretch'
     },
     items: [{
+        id: 'additional-filter-container',
+        xtype: 'container',
+        layout: {
+            type: 'hbox',
+            align: 'middle',
+            defaultMargins: '0 10 10 0',
+        }
+    }, {
         id: Utils.AncestorPiAppFilter.RENDER_AREA_ID,
         xtype: 'container',
         layout: {
@@ -59,8 +67,36 @@ Ext.define('custom-grid-with-deep-export', {
     launch() {
         Rally.data.wsapi.Proxy.superclass.timeout = 180000;
         Rally.data.wsapi.batch.Proxy.superclass.timeout = 180000;
+        this.settingView = true;
 
         this.down('#' + Utils.AncestorPiAppFilter.PANEL_RENDER_AREA_ID).on('resize', this.onResize, this);
+
+        this.gridArea = this.down('#grid-area');
+        let type = this.getSetting('type');
+        let additionalFilter = this.getSetting('additionalFilterField');
+
+        if (type && additionalFilter) {
+            let label = this.getSetting('additionalFilterLabel');
+            if (!label) {
+                label = additionalFilter.indexOf('c_') === 0 ? additionalFilter.substring(2) : additionalFilter;
+            }
+            this.down('#' + Utils.AncestorPiAppFilter.RENDER_AREA_ID).add({
+                xtype: 'rallyfieldvaluecombobox',
+                itemId: 'additionalFilterCombo',
+                model: type,
+                field: additionalFilter,
+                labelStyle: 'font-size: medium',
+                allowBlank: false,
+                allowNoEntry: false,
+                defaultSelectionPosition: 'first',
+                fieldLabel: label,
+                labelWidth: label.length * 10,
+                listeners: {
+                    scope: this,
+                    change: this.viewChange
+                }
+            });
+        }
 
         this.ancestorFilterPlugin = Ext.create('Utils.AncestorPiAppFilter', {
             ptype: 'UtilsAncestorPiAppFilter',
@@ -85,6 +121,7 @@ Ext.define('custom-grid-with-deep-export', {
                                 select: this.viewChange,
                                 change: this.viewChange
                             });
+                            this.settingView = false;
                             this.viewChange();
                         },
                         failure(msg) {
@@ -100,14 +137,21 @@ Ext.define('custom-grid-with-deep-export', {
     // Usual monkey business to size gridboards
     onResize() {
         this.callParent(arguments);
-        let gridArea = this.down('#grid-area');
         let gridboard = this.down('rallygridboard');
-        if (gridArea && gridboard) {
-            gridboard.setHeight(gridArea.getHeight());
+        if (this.gridArea && gridboard) {
+            gridboard.setHeight(this.gridArea.getHeight());
         }
     },
 
     _buildStore() {
+        // This object helps us cancel a load that is waiting for filters to be returned
+        let thisStatus = { loadingFailed: false, cancelLoad: false };
+        this._cancelPreviousLoad(thisStatus);
+
+        this._setLoading(true);
+        this.gridArea.removeAll(true);
+        this._addCancelBtn(false);
+
         this.modelNames = [this.getSetting('type')];
         this.logger.log('_buildStore', this.modelNames);
         let fetch = ['FormattedID', 'Name'];
@@ -117,6 +161,7 @@ Ext.define('custom-grid-with-deep-export', {
         }
 
         Ext.create('Rally.data.wsapi.TreeStoreBuilder').build({
+            id: 'gridboardStore',
             models: this.modelNames,
             enableHierarchy: true,
             remoteSort: true,
@@ -130,21 +175,17 @@ Ext.define('custom-grid-with-deep-export', {
                 }
             },
         }).then({
-            success: this._addGridboard,
+            success: (store) => {
+                if (thisStatus.loadingFailed || thisStatus.cancelLoad) {
+                    this.setLoading(false);
+                    return;
+                }
+                this._addGridboard(store, thisStatus);
+            },
             scope: this
         });
     },
-    async _addGridboard(store) {
-
-        var gridboardStore = Ext.getStore('gridboardStore');
-        if (gridboardStore) {
-            gridboardStore.cancelLoad();
-        }
-
-        this.loadingFailed = false;
-        let gridArea = this.down('#grid-area');
-        gridArea.setLoading(true);
-        gridArea.removeAll(true);
+    async _addGridboard(store, thisStatus) {
 
         let currentModelName = this.modelNames[0];
         let stateIdForType = Ext.String.startsWith(currentModelName.toLowerCase(), 'portfolioitem') ? 'CA.customgridportfolioitems' : 'CA.customgridothers';
@@ -157,16 +198,32 @@ Ext.define('custom-grid-with-deep-export', {
 
         let ancestorAndMultiFilters = await this.ancestorFilterPlugin.getAllFiltersForType(currentModelName, true).catch((e) => {
             Rally.ui.notify.Notifier.showError({ message: (e.message || e) });
-            this.loadingFailed = true;
+            thisStatus.loadingFailed = true;
         });
 
-        if (this.loadingFailed) {
-            gridArea.setLoading(false);
+        if (thisStatus.loadingFailed) {
+            this._setLoading(false);
+            return;
+        }
+
+        if (thisStatus.cancelLoad) {
             return;
         }
 
         if (ancestorAndMultiFilters) {
             filters = filters.concat(ancestorAndMultiFilters);
+        }
+
+        let additionalFilter = this.getSetting('additionalFilterField');
+
+        if (additionalFilter) {
+            let additionalFilterValue = this.down('#additionalFilterCombo').getValue();
+            if (additionalFilterValue || typeof additionalFilterValue === 'string') {
+                filters.push(new Rally.data.wsapi.Filter({
+                    property: additionalFilter,
+                    value: additionalFilterValue
+                }));
+            }
         }
 
         this.logger.log('_addGridboard', store);
@@ -212,19 +269,20 @@ Ext.define('custom-grid-with-deep-export', {
                 }
             ];
         }
-        this.gridboard = gridArea.add({
+
+        this.gridboard = this.gridArea.add({
             xtype: 'rallygridboard',
             context,
             stateful: true,
             stateId: stateIdForType,
             modelNames: this.modelNames,
             toggleState: 'grid',
-            height: gridArea.getHeight(),
+            height: this.gridArea.getHeight(),
             listeners: {
                 scope: this,
                 viewchange: this.viewChange,
                 load: function () {
-                    this.down('#grid-area').setLoading(false);
+                    this._setLoading(false);
                 }
             },
             plugins: [
@@ -241,11 +299,7 @@ Ext.define('custom-grid-with-deep-export', {
                             quickFilterPanelConfig: {
                                 portfolioItemTypes: this.portfolioItemTypes,
                                 modelName: currentModelName,
-                                whiteListFields: [
-                                    'Tags',
-                                    'Milestones',
-                                    'c_EnterpriseApprovalEA'
-                                ]
+                                whiteListFields: ['Tags', 'Milestones', 'c_EnterpriseApprovalEA']
                             }
                         }
                     }
@@ -283,7 +337,6 @@ Ext.define('custom-grid-with-deep-export', {
             gridConfig: {
                 store,
                 storeConfig: {
-                    storeId: 'gridboardStore',
                     filters,
                     context: dataContext,
                     enablePostGet: true
@@ -294,6 +347,21 @@ Ext.define('custom-grid-with-deep-export', {
                 features: [summaryRowFeature]
             }
         });
+    },
+
+    _cancelPreviousLoad: function (newStatus) {
+        if (this.globalStatus) {
+            this.globalStatus.cancelLoad = true;
+        }
+        this.globalStatus = newStatus;
+
+        // If there is a current chart store, force it to stop loading pages
+        // Note that recreating the grid will then create a new chart store with
+        // the same store ID.
+        var gridboardStore = Ext.getStore('gridboardStore');
+        if (gridboardStore) {
+            gridboardStore.cancelLoad();
+        }
     },
 
     viewChange() {
@@ -315,6 +383,20 @@ Ext.define('custom-grid-with-deep-export', {
 
     getModelScopedStateId(modelName, id) {
         return this.getContext().getScopedStateId(`${modelName}-${id}`);
+    },
+
+    _addCancelBtn(hidden) {
+        let width = this.gridArea.getEl().getWidth();
+        let height = this.gridArea.getEl().getHeight();
+        this.gridArea.add({
+            xtype: 'rallybutton',
+            text: 'cancel',
+            itemId: 'cancelBtn',
+            id: 'cancelBtn',
+            style: `z-index:19500;position:absolute;top:${Math.round(height / 2) + 50}px;left:${Math.round(width / 2) - 30}px;width:60px;height:25px;`,
+            hidden,
+            handler: this._cancelLoading
+        });
     },
 
     _getExportMenuItems() {
@@ -413,7 +495,11 @@ Ext.define('custom-grid-with-deep-export', {
         return _.map(this.portfolioItemTypes, type => type.get('TypePath').toLowerCase());
     },
 
-    _showError(msg) {
+    _showError(msg, status) {
+        if (status) {
+            status.loadingFailed = true;
+        }
+        this._setLoading(false);
         Rally.ui.notify.Notifier.showError({ message: msg });
     },
     _showStatus(message) {
@@ -429,6 +515,16 @@ Ext.define('custom-grid-with-deep-export', {
             Rally.ui.notify.Notifier.hide();
         }
     },
+    _setLoading(message, target) {
+        if (!message) {
+            this.gridArea.down('#cancelBtn').hide();
+        }
+        if (target) {
+            target.setLoading(message);
+        } else {
+            this.gridArea.setLoading(message);
+        }
+    },
     _getExportColumns() {
         let grid = this.down('rallygridboard').getGridOrBoard();
         if (grid) {
@@ -442,21 +538,8 @@ Ext.define('custom-grid-with-deep-export', {
         }
         return [];
     },
-    async _getExportFilters() {
-        this.loadingFailed = false;
-
-        let grid = this.down('rallygridboard'),
-            filters = [],
-            query = this.getSetting('query');
-
-        if (grid.currentCustomFilter && grid.currentCustomFilter.filters) {
-            // Concat any current custom filters (don't assign as we don't want to modify the currentCustomFilter array)
-            filters = filters.concat(grid.currentCustomFilter.filters);
-        }
-
-        if (query) {
-            filters.push(Rally.data.wsapi.Filter.fromQueryString(query));
-        }
+    async _getExportFilters(status) {
+        let filters = this.getSetting('query') ? [Rally.data.wsapi.Filter.fromQueryString(this.getSetting('query'))] : [];
 
         let timeboxScope = this.getContext().getTimeboxScope();
         if (timeboxScope && timeboxScope.isApplicable(grid.getGridOrBoard().store.model)) {
@@ -465,11 +548,23 @@ Ext.define('custom-grid-with-deep-export', {
 
         let ancestorAndMultiFilters = await this.ancestorFilterPlugin.getAllFiltersForType(this.modelNames[0], true).catch((e) => {
             Rally.ui.notify.Notifier.showError({ message: (e.message || e) });
-            this.loadingFailed = true;
+            status.loadingFailed = true;
         });
 
         if (ancestorAndMultiFilters) {
             filters = filters.concat(ancestorAndMultiFilters);
+        }
+
+        let additionalFilter = this.getSetting('additionalFilterField');
+
+        if (additionalFilter) {
+            let additionalFilterValue = this.down('#additionalFilterCombo').getValue();
+            if (additionalFilterValue || typeof additionalFilterValue === 'string') {
+                filters.push(new Rally.data.wsapi.Filter({
+                    property: additionalFilter,
+                    value: additionalFilterValue
+                }));
+            }
         }
 
         return filters;
@@ -485,11 +580,19 @@ Ext.define('custom-grid-with-deep-export', {
         return this.down('rallygridboard').getGridOrBoard().getStore().getSorters();
     },
     async _export(args) {
+        this._setLoading('Getting filters for export...');
+        this.gridArea.down('#cancelBtn').show();
+
+        // This object helps us cancel a load that is waiting for filters to be returned
+        let thisStatus = { loadingFailed: false, cancelLoad: false };
+        this._cancelPreviousLoad(thisStatus);
+
         let columns = this._getExportColumns();
         let fetch = this._getExportFetch();
-        let filters = await this._getExportFilters();
+        let filters = await this._getExportFilters(thisStatus);
 
-        if (this.loadingFailed) {
+        if (thisStatus.loadingFailed) {
+            this._showError('Error loading filters for export. Please try again.');
             return;
         }
 
@@ -499,17 +602,20 @@ Ext.define('custom-grid-with-deep-export', {
 
         this.logger.log('_export', fetch, args, columns, filters.toString(), childModels, sorters);
 
+        // this._setLoading('Loading data for export...');
+
         let exporter = Ext.create('Rally.technicalservices.HierarchyExporter', {
             modelName,
             fileName: 'hierarchy-export.csv',
             columns,
             portfolioItemTypeObjects: this.portfolioItemTypes,
-            singleLevel: !(childModels && childModels.length)
+            singleLevel: !(childModels && childModels.length),
+            status: thisStatus
 
         });
-        exporter.on('exportupdate', this._showStatus, this);
+        exporter.on('exportupdate', this._setLoading, this);
         exporter.on('exporterror', this._showError, this);
-        exporter.on('exportcomplete', this._showStatus, this);
+        exporter.on('exportcomplete', this._onExportComplete, this);
 
         let dataContext = this.getContext().getDataContext();
         if (this.searchAllProjects()) {
@@ -523,13 +629,29 @@ Ext.define('custom-grid-with-deep-export', {
             loadChildModels: childModels,
             portfolioItemTypes: this.portfolioItemTypes,
             context: dataContext,
-            enablePostGet: true
+            enablePostGet: true,
+            status: thisStatus
         });
-        hierarchyLoader.on('statusupdate', this._showStatus, this);
+        hierarchyLoader.on('statusupdate', this._setLoading, this);
         hierarchyLoader.on('hierarchyloadartifactsloaded', exporter.setRecords, exporter);
         hierarchyLoader.on('hierarchyloadcomplete', exporter.export, exporter);
         hierarchyLoader.on('hierarchyloaderror', this._showError, this);
         hierarchyLoader.load();
+    },
+    _onExportComplete(message) {
+        this._setLoading(false);
+        this._showStatus(message);
+    },
+    _cancelLoading: function () {
+        let app = Rally.getApp();
+        if (app.globalStatus) {
+            app.globalStatus.cancelLoad = true;
+        }
+        var gridboardStore = Ext.getStore('gridboardStore');
+        if (gridboardStore) {
+            gridboardStore.cancelLoad();
+        }
+        app._setLoading(false);
     },
     getHeight() {
         let el = this.getEl();
