@@ -75,29 +75,6 @@ Ext.define('custom-grid-with-deep-export', {
         let type = this.getSetting('type');
         let additionalFilter = this.getSetting('additionalFilterField');
 
-        if (type && additionalFilter) {
-            let label = this.getSetting('additionalFilterLabel');
-            if (!label) {
-                label = additionalFilter.indexOf('c_') === 0 ? additionalFilter.substring(2) : additionalFilter;
-            }
-            this.down('#' + Utils.AncestorPiAppFilter.RENDER_AREA_ID).add({
-                xtype: 'rallyfieldvaluecombobox',
-                itemId: 'additionalFilterCombo',
-                model: type,
-                field: additionalFilter,
-                labelStyle: 'font-size: medium',
-                allowBlank: false,
-                allowNoEntry: false,
-                defaultSelectionPosition: 'first',
-                fieldLabel: label,
-                labelWidth: label.length * 10,
-                listeners: {
-                    scope: this,
-                    change: this.viewChange
-                }
-            });
-        }
-
         this.ancestorFilterPlugin = Ext.create('Utils.AncestorPiAppFilter', {
             ptype: 'UtilsAncestorPiAppFilter',
             pluginId: 'ancestorFilterPlugin',
@@ -108,6 +85,7 @@ Ext.define('custom-grid-with-deep-export', {
                 'c_EnterpriseApprovalEA'
             ],
             filtersHidden: false,
+            visibleTab: type,
             listeners: {
                 scope: this,
                 ready(plugin) {
@@ -121,8 +99,37 @@ Ext.define('custom-grid-with-deep-export', {
                                 select: this.viewChange,
                                 change: this.viewChange
                             });
-                            this.settingView = false;
-                            this.viewChange();
+
+                            if (type && additionalFilter) {
+                                let label = this.getSetting('additionalFilterLabel');
+                                if (!label) {
+                                    label = additionalFilter.indexOf('c_') === 0 ? additionalFilter.substring(2) : additionalFilter;
+                                }
+                                this.down('#' + Utils.AncestorPiAppFilter.RENDER_AREA_ID).add({
+                                    xtype: 'rallyfieldvaluecombobox',
+                                    itemId: 'additionalFilterCombo',
+                                    model: type,
+                                    field: additionalFilter,
+                                    labelStyle: 'font-size: medium',
+                                    allowBlank: false,
+                                    allowNoEntry: false,
+                                    defaultSelectionPosition: 'first',
+                                    fieldLabel: label,
+                                    labelWidth: label.length * 10,
+                                    listeners: {
+                                        scope: this,
+                                        change: this.viewChange,
+                                        ready: () => {
+                                            this.settingView = false;
+                                            this.viewChange();
+                                        }
+                                    }
+                                });
+                            }
+                            else {
+                                this.settingView = false;
+                                this.viewChange();
+                            }
                         },
                         failure(msg) {
                             this._showError(msg);
