@@ -7,14 +7,6 @@ Ext.define('custom-grid-with-deep-export', {
         align: 'stretch'
     },
     items: [{
-        id: 'additional-filter-container',
-        xtype: 'container',
-        layout: {
-            type: 'hbox',
-            align: 'middle',
-            defaultMargins: '0 10 10 0',
-        }
-    }, {
         id: Utils.AncestorPiAppFilter.RENDER_AREA_ID,
         xtype: 'container',
         layout: {
@@ -546,10 +538,11 @@ Ext.define('custom-grid-with-deep-export', {
         return [];
     },
     async _getExportFilters(status) {
+        let grid = this.down('rallygridboard');
         let filters = this.getSetting('query') ? [Rally.data.wsapi.Filter.fromQueryString(this.getSetting('query'))] : [];
 
         let timeboxScope = this.getContext().getTimeboxScope();
-        if (timeboxScope && timeboxScope.isApplicable(grid.getGridOrBoard().store.model)) {
+        if (timeboxScope && grid && timeboxScope.isApplicable(grid.getGridOrBoard().store.model)) {
             filters.push(timeboxScope.getQueryFilter());
         }
 

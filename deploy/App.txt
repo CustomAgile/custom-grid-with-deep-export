@@ -1,13 +1,13 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>custom-grid-with-deep-export-1.4.13</title>
+    <title>custom-grid-with-deep-export-1.4.14</title>
     <!--  (c) 2019 Custom Agile.  All Rights Reserved. -->
-    <!--  Build Date: Tue Jan 21 2020 19:56:05 GMT+0100 (Central European Standard Time) -->
+    <!--  Build Date: Wed Jan 29 2020 19:20:26 GMT+0100 (Central European Standard Time) -->
 
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Tue Jan 21 2020 19:56:05 GMT+0100 (Central European Standard Time)";
-        var CHECKSUM = 1869150604801;
+        var APP_BUILD_DATE = "Wed Jan 29 2020 19:20:26 GMT+0100 (Central European Standard Time)";
+        var CHECKSUM = 1867847504650;
     </script>
 
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -3633,14 +3633,6 @@ Ext.define('custom-grid-with-deep-export', {
         align: 'stretch'
     },
     items: [{
-        id: 'additional-filter-container',
-        xtype: 'container',
-        layout: {
-            type: 'hbox',
-            align: 'middle',
-            defaultMargins: '0 10 10 0',
-        }
-    }, {
         id: Utils.AncestorPiAppFilter.RENDER_AREA_ID,
         xtype: 'container',
         layout: {
@@ -4172,10 +4164,11 @@ Ext.define('custom-grid-with-deep-export', {
         return [];
     },
     async _getExportFilters(status) {
+        let grid = this.down('rallygridboard');
         let filters = this.getSetting('query') ? [Rally.data.wsapi.Filter.fromQueryString(this.getSetting('query'))] : [];
 
         let timeboxScope = this.getContext().getTimeboxScope();
-        if (timeboxScope && timeboxScope.isApplicable(grid.getGridOrBoard().store.model)) {
+        if (timeboxScope && grid && timeboxScope.isApplicable(grid.getGridOrBoard().store.model)) {
             filters.push(timeboxScope.getQueryFilter());
         }
 
