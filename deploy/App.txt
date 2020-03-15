@@ -1,13 +1,13 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>custom-grid-with-deep-export-1.4.14</title>
+    <title>custom-grid-with-deep-export-1.4.15</title>
     <!--  (c) 2019 Custom Agile.  All Rights Reserved. -->
-    <!--  Build Date: Wed Jan 29 2020 19:20:26 GMT+0100 (Central European Standard Time) -->
+    <!--  Build Date: Sun Mar 15 2020 13:57:25 GMT+0100 (Central European Standard Time) -->
 
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed Jan 29 2020 19:20:26 GMT+0100 (Central European Standard Time)";
-        var CHECKSUM = 1867847504650;
+        var APP_BUILD_DATE = "Sun Mar 15 2020 13:57:25 GMT+0100 (Central European Standard Time)";
+        var CHECKSUM = 1879134504557;
     </script>
 
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -220,7 +220,7 @@ multiFilterHelpHtml = `
         `;
 Ext.define('Utils.AncestorPiAppFilter', {
     alias: 'plugin.UtilsAncestorPiAppFilter',
-    version: "1.2.2",
+    version: "1.2.3",
     mixins: [
         'Ext.AbstractPlugin',
         'Rally.Messageable'
@@ -287,7 +287,7 @@ Ext.define('Utils.AncestorPiAppFilter', {
          * @cfg {Array}
          * Whitelist array for inline filters
          */
-        whiteListFields: ['Tags', 'Milstones'],
+        whiteListFields: ['Tags', 'Milstones', 'c_EAEpic'],
 
         /**
          * @cfg {Array}
@@ -707,7 +707,7 @@ Ext.define('Utils.AncestorPiAppFilter', {
 
                 // If filters on custom fields exist, lets get a list of IDs at that level and use those IDs as our filter
                 // This is to overcome an issue with missing indices in Rally's database causing timeouts
-                if (hasCustomFieldFilters) {
+                if (hasCustomFieldFilters && this.getIgnoreProjectScope()) {
                     let parentIDs = [];
                     try {
                         let currentLevelFilters = this._getWsapiFilter(parentType);
@@ -785,6 +785,12 @@ Ext.define('Utils.AncestorPiAppFilter', {
         if (filter) {
             if (filter.property) {
                 if (typeof filter.property === 'string') {
+                    if (filter.config && filter.property === filter.config.property) {
+                        filter.config.property = `${parentPrefix}.${filter.property}`;
+                    }
+                    if (filter.initialConfig && filter.property === filter.initialConfig.property) {
+                        filter.initialConfig.property = `${parentPrefix}.${filter.property}`;
+                    }
                     filter.property = `${parentPrefix}.${filter.property}`;
                 }
                 else {
@@ -1939,7 +1945,6 @@ Ext.define('Utils.AncestorPiAppFilter', {
 
     _clearAllFilters: function () {
         this.suspendEvents(false);
-        this.suspendLayouts();
 
         // The quick filters don't properly clear if the filter isn't displayed
         let activeTab = this.tabPanel.getActiveTab();
@@ -1947,7 +1952,10 @@ Ext.define('Utils.AncestorPiAppFilter', {
         _.each(this.filterControls, function (filterControl) {
             try {
                 this.tabPanel.setActiveTab(filterControl.tab);
+                filterControl.inlineFilterButton.suspendEvents(false);
                 filterControl.inlineFilterButton.clearAllFilters();
+                filterControl.inlineFilterButton.saveState();
+                filterControl.inlineFilterButton.resumeEvents();
             }
             catch (e) {
                 console.log(e);
@@ -1955,15 +1963,8 @@ Ext.define('Utils.AncestorPiAppFilter', {
         }.bind(this));
 
         this.tabPanel.setActiveTab(activeTab);
-
-        if (this.clearAllButton) {
-            this.clearAllButton.hide();
-        }
-
         this.resumeEvents();
-        this.resumeLayouts(false);
-        this.updateLayout();
-        this.fireEvent('change', this.getMultiLevelFilters());
+        this._onFilterChange();
     },
 
     _hasFilters: function () {
@@ -3404,12 +3405,18 @@ Ext.override(Rally.ui.gridboard.plugin.GridBoardFieldPicker, {
     ]
 });
 
+// Ext.override(Rally.ui.picker.FieldPicker, {
+//     _shouldShowField: function (field) {
+//         return (this._fieldIsInWhiteList(field) || this._shouldShowCustomField(field)) && !this._fieldIsInBlackList(field);
+//     },
+// });
+
 Ext.override(Rally.ui.inlinefilter.PropertyFieldComboBox, {
     /**
      * @cfg {String[]} whiteListFields
      * field names that should be included from the filter row field combobox
      */
-    defaultWhiteListFields: ['Milestones', 'Tags', 'c_EnterpriseApprovalEA']
+    defaultWhiteListFields: ['Milestones', 'Tags', 'c_EnterpriseApprovalEA', 'c_EAEpic']
 });
 
 Ext.override(Rally.ui.grid.TreeGrid, {
@@ -3592,7 +3599,7 @@ Ext.override(Rally.ui.combobox.FieldComboBox, {
                         combo.store.filterBy(function (record) {
                             var field = record.get('fieldDefinition'),
                                 attr = field.attributeDefinition,
-                                whiteList = ['c_EnterpriseApprovalEA'];
+                                whiteList = ['c_EnterpriseApprovalEA', 'c_EAEpic'];
                             // console.log(field.name, field ? field.isConstrained() : '');
                             return record.get('name') === '-- None --' || (attr && field.isConstrained() && field.hasAllowedValues() && (!attr.Hidden || _.contains(whiteList, field.name)) && (((attr.AttributeType !== 'COLLECTION' && !field.isMultiValueCustom()) &&
                                 !field.isMappedFromArtifact) || _.contains(whiteList, field.name)));
@@ -3700,7 +3707,8 @@ Ext.define('custom-grid-with-deep-export', {
             whiteListFields: [
                 'Tags',
                 'Milestones',
-                'c_EnterpriseApprovalEA'
+                'c_EnterpriseApprovalEA',
+                'c_EAEpic'
             ],
             filtersHidden: false,
             visibleTab: type,
@@ -3924,7 +3932,7 @@ Ext.define('custom-grid-with-deep-export', {
                             quickFilterPanelConfig: {
                                 portfolioItemTypes: this.portfolioItemTypes,
                                 modelName: currentModelName,
-                                whiteListFields: ['Tags', 'Milestones', 'c_EnterpriseApprovalEA']
+                                whiteListFields: ['Tags', 'Milestones', 'c_EnterpriseApprovalEA', 'c_EAEpic']
                             }
                         }
                     }
@@ -3935,7 +3943,10 @@ Ext.define('custom-grid-with-deep-export', {
                     modelNames: this.modelNames,
                     stateful: true,
                     stateId: this.getModelScopedStateId(currentModelName, 'fields'),
-                    margin: '3 10 0 10'
+                    margin: '3 10 0 10',
+                    fieldPickerConfig: {
+                        fieldWhiteList: ['c_EAEpic']
+                    }
                 },
                 {
                     ptype: 'rallygridboardactionsmenu',

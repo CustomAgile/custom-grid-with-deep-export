@@ -113,7 +113,7 @@
                         combo.store.filterBy(function (record) {
                             var field = record.get('fieldDefinition'),
                                 attr = field.attributeDefinition,
-                                whiteList = ['c_EnterpriseApprovalEA'];
+                                whiteList = ['c_EnterpriseApprovalEA', 'c_EAEpic'];
                             // console.log(field.name, field ? field.isConstrained() : '');
                             return record.get('name') === '-- None --' || (attr && field.isConstrained() && field.hasAllowedValues() && (!attr.Hidden || _.contains(whiteList, field.name)) && (((attr.AttributeType !== 'COLLECTION' && !field.isMultiValueCustom()) &&
                                 !field.isMappedFromArtifact) || _.contains(whiteList, field.name)));
