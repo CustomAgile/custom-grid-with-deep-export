@@ -3,11 +3,11 @@
 <head>
     <title>custom-grid-with-deep-export-1.4.15</title>
     <!--  (c) 2019 Custom Agile.  All Rights Reserved. -->
-    <!--  Build Date: Sun Mar 15 2020 13:57:25 GMT+0100 (Central European Standard Time) -->
-
+    <!--  Build Date: Sun Mar 15 2020 14:42:54 GMT+0100 (Central European Standard Time) -->
+    <!--  Repository: https://github.com/CustomAgile/custom-grid-with-deep-export -->
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Sun Mar 15 2020 13:57:25 GMT+0100 (Central European Standard Time)";
-        var CHECKSUM = 1879134504557;
+        var APP_BUILD_DATE = "Sun Mar 15 2020 14:42:54 GMT+0100 (Central European Standard Time)";
+        var CHECKSUM = 1880542418804;
     </script>
 
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>

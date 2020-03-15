@@ -2,6 +2,7 @@
     "className": "custom-grid-with-deep-export",
     "server": "https://rally1.rallydev.com",
     "sdk": "2.1",
+    "repository": "https://github.com/CustomAgile/custom-grid-with-deep-export",
     "apiKey": "_PUT_APIKEY_HERE_",
     "javascript": [
         "node_modules/@agile-central-technical-services/utils-cancel-store-load/index.js",
