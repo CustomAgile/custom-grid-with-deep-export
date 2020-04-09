@@ -75,7 +75,8 @@ Ext.define('custom-grid-with-deep-export', {
                 'Tags',
                 'Milestones',
                 'c_EnterpriseApprovalEA',
-                'c_EAEpic'
+                'c_EAEpic',
+                'DisplayColor'
             ],
             filtersHidden: false,
             visibleTab: type,
@@ -297,9 +298,10 @@ Ext.define('custom-grid-with-deep-export', {
                         inlineFilterPanelConfig: {
                             hidden: true,
                             quickFilterPanelConfig: {
+                                hidden: true,
                                 portfolioItemTypes: this.portfolioItemTypes,
                                 modelName: currentModelName,
-                                whiteListFields: ['Tags', 'Milestones', 'c_EnterpriseApprovalEA', 'c_EAEpic']
+                                whiteListFields: ['Tags', 'Milestones', 'c_EnterpriseApprovalEA', 'c_EAEpic', 'DisplayColor']
                             }
                         }
                     }
