@@ -87,18 +87,12 @@ Ext.override(Rally.ui.gridboard.plugin.GridBoardFieldPicker, {
     ]
 });
 
-// Ext.override(Rally.ui.picker.FieldPicker, {
-//     _shouldShowField: function (field) {
-//         return (this._fieldIsInWhiteList(field) || this._shouldShowCustomField(field)) && !this._fieldIsInBlackList(field);
-//     },
-// });
-
 Ext.override(Rally.ui.inlinefilter.PropertyFieldComboBox, {
     /**
      * @cfg {String[]} whiteListFields
      * field names that should be included from the filter row field combobox
      */
-    defaultWhiteListFields: ['Milestones', 'Tags', 'c_EnterpriseApprovalEA', 'c_EAEpic']
+    defaultWhiteListFields: ['Milestones', 'Tags', 'c_EnterpriseApprovalEA', 'c_EAEpic', 'DisplayColor']
 });
 
 Ext.override(Rally.ui.grid.TreeGrid, {

@@ -232,32 +232,9 @@ Ext.define('Rally.technicalservices.HierarchyExporter', {
         rec._type = recData._type;
 
         _.each(columns, function (c) {
-            var field = c.dataIndex || null;
+            var field = c.dataIndex;
             if (field) {
-                var data = recData[field];
-
-                if (field === "Parent") {
-                    data = recData[field] || recData["PortfolioItem"];
-                }
-
-                if (Ext.isObject(data)) {
-                    if (data._tagsNameArray && data._tagsNameArray.length > 0) {
-                        var names = _.pluck(data._tagsNameArray, 'Name');
-                        rec[field] = names.join(',');
-                    }
-                    else if (data.FormattedID) {
-                        rec[field] = data.FormattedID + ": " + data._refObjectName;
-                    }
-                    else {
-                        rec[field] = data._refObjectName;
-                    }
-                }
-                else if (Ext.isDate(data)) {
-                    rec[field] = Rally.util.DateTime.formatWithDefaultDateTime(data);
-                }
-                else {
-                    rec[field] = data;
-                }
+                rec[field] = CustomAgile.ui.renderer.RecordFieldRendererFactory.getFieldDisplayValue(recData, field, '; ', true);
             }
         });
 

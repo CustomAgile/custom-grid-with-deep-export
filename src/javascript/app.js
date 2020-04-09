@@ -313,9 +313,7 @@ Ext.define('custom-grid-with-deep-export', {
                     stateful: true,
                     stateId: this.getModelScopedStateId(currentModelName, 'fields'),
                     margin: '3 10 0 10',
-                    fieldPickerConfig: {
-                        fieldWhiteList: ['c_EAEpic']
-                    }
+                    fieldPickerConfig: {}
                 },
                 {
                     ptype: 'rallygridboardactionsmenu',
