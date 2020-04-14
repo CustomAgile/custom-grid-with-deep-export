@@ -57,8 +57,8 @@ Ext.define('custom-grid-with-deep-export', {
         this._buildStore();
     },
     launch() {
-        Rally.data.wsapi.Proxy.superclass.timeout = 180000;
-        Rally.data.wsapi.batch.Proxy.superclass.timeout = 180000;
+        Rally.data.wsapi.Proxy.superclass.timeout = 210000;
+        Rally.data.wsapi.batch.Proxy.superclass.timeout = 210000;
         this.settingView = true;
 
         this.down('#' + Utils.AncestorPiAppFilter.PANEL_RENDER_AREA_ID).on('resize', this.onResize, this);

@@ -83,7 +83,6 @@ Ext.define('Rally.technicalservices.HierarchyExporter', {
                     obj.Requirement && obj.Requirement.ObjectID ||
                     obj.TestCase && obj.TestCase.ObjectID;
 
-            //   if (obj._type === 'task') { console.log('obj',parent, obj._type, obj)};
             if (parent && objectHash[parent]) {
                 objectHash[parent].loadedChildren.push(obj);
             }
@@ -101,10 +100,6 @@ Ext.define('Rally.technicalservices.HierarchyExporter', {
     },
     _transformDataToDelimitedString: function (data, columns) {
         var csvArray = [],
-            delimiter = ",",
-            rowDelimiter = "\r\n",
-            re = new RegExp(delimiter + '|\"|\r|\n', 'g'),
-            reHTML = new RegExp('<\/?[^>]+>', 'g'),
             reNbsp = new RegExp('&nbsp;', 'ig');
 
         var column_keys = _.map(columns, function (c) { return c.dataIndex; });
@@ -116,41 +111,22 @@ Ext.define('Rally.technicalservices.HierarchyExporter', {
             return header;
         });
 
-        csvArray.push(column_headers.join(delimiter));
+        csvArray.push(column_headers);
 
         Ext.Array.each(data, function (obj) {
             var data = [];
             Ext.Array.each(column_keys, function (key) {
                 var val = obj[key];
-                //console.log('column-key', key, obj);
                 if (key === "Parent") {
                     val = obj[key] || obj['PortfolioItem'];
                 }
 
-                if (val) {
-                    if (reHTML.test(val)) {
-                        val = val.replace('<br>', '\r\n');
-                        this.logger.log('html val', val);
-                        val = Ext.util.Format.htmlDecode(val);
-                        val = Ext.util.Format.stripTags(val);
-                        this.logger.log('stripped html val', val);
-                    }
-                    if (reNbsp.test(val)) {
-                        val = val.replace(reNbsp, ' ');
-                    }
-
-                    if (re.test(val)) { //enclose in double quotes if we have the delimiters
-                        val = val.replace(/\"/g, '\"\"');
-                        val = Ext.String.format("\"{0}\"", val);
-                    }
-
-                }
                 data.push(val);
             }, this);
-            csvArray.push(data.join(delimiter));
+            csvArray.push(data);
         }, this);
 
-        return csvArray.join(rowDelimiter);
+        return Papa.unparse(csvArray);
     },
     /**
      * Returns an array of hash rollup data
@@ -225,7 +201,7 @@ Ext.define('Rally.technicalservices.HierarchyExporter', {
     },
     _getExportDataRow: function (recData, columns, ancestors) {
         var rec = Ext.clone(ancestors),
-            type = recData._type; //obj.getData('type');
+            type = recData._type;
 
         rec[type] = recData.FormattedID;
         rec.type = this.getTypePathDisplayName(recData._type);

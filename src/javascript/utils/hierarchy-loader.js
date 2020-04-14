@@ -15,7 +15,7 @@ Ext.define('Rally.technicalservices.HierarchyLoader', {
     sorters: undefined,
     status: undefined,
 
-    maxParallelCalls: 6,
+    maxParallelCalls: 7,
 
     constructor: function (config) {
         this.mixins.observable.constructor.call(this, config);
@@ -120,45 +120,53 @@ Ext.define('Rally.technicalservices.HierarchyLoader', {
         var fetch = this.fetch.concat(this.getRequiredFetchFields(type)),
             chunks = this._getChunks(parentRecords, 'Children', 'Count');
 
-        return this.fetchChunks(type, fetch, chunks, "Parent.ObjectID", Ext.String.format("Please Wait... Loading Children for {0} Portfolio Items", parentRecords.length));
+        return this.fetchChunks(type, fetch, chunks, "Parent", Ext.String.format("Please Wait... Loading Children for {0} Portfolio Items", parentRecords.length));
     },
-    _getChunks: function (parentRecords, countField, countFieldAttribute) {
+    baseSlice: function (array, start, end) {
+        var index = -1,
+            length = array.length;
+
+        if (start < 0) {
+            start = -start > length ? 0 : (length + start);
+        }
+        end = end > length ? length : end;
+        if (end < 0) {
+            end += length;
+        }
+        length = start > end ? 0 : ((end - start) >>> 0);
+        start >>>= 0;
+
+        var result = Array(length);
+        while (++index < length) {
+            result[index] = array[index + start];
+        }
+        return result;
+    },
+
+    chunk: function (array, size) {
+        var length = array == null ? 0 : array.length;
+        if (!length || size < 1) {
+            return [];
+        }
+        var index = 0,
+            resIndex = 0,
+            result = Array(Math.ceil(length / size));
+
+        while (index < length) {
+            result[resIndex++] = this.baseSlice(array, index, (index += size));
+        }
+        return result;
+    },
+
+    _getChunks: function (parentRecords) {
         if (this._failureOrCancel()) {
             return [];
         }
 
-        this.logger.log("_getChunks", parentRecords, countField, countFieldAttribute);
+        this.logger.log("_getChunks", parentRecords);
 
-        var chunks = [],
-            childCount = 0,
-            maxListSize = 100,
-            childCountTarget = 200,
-            idx = 0;
-
-        chunks[idx] = [];
-        _.each(parentRecords, function (r) {
-            var count = r.get(countField);
-            if (countFieldAttribute && count) {
-                count = count[countFieldAttribute];
-            }
-            if (count > 0) { //using story count because it is a more accurate gauge of the number of user stories for a feature than UserStories.Count is, evne though it may not match exactly.
-                childCount += count;
-                if (childCount > childCountTarget || chunks[idx].length >= maxListSize) {
-                    idx++;
-                    chunks[idx] = [];
-                    childCount = 0;
-                }
-                chunks[idx].push(r.get('ObjectID'));
-            }
-        });
-
-        // If we only have 1 record, chunks ends up being [[], [123456789]]
-        // in fetchChunks, the method returns immediately when the length of
-        // the first array in the chunks array is 0. This is a quick and 
-        // dirty fix that minimizes breaking other functionality
-        if (chunks.length === 2 && chunks[0].length === 0) {
-            chunks = [chunks.pop()];
-        }
+        let ids = _.map(parentRecords, r => r.get('_ref'));
+        let chunks = this.chunk(ids, 20);
 
         return chunks;
     },
@@ -166,7 +174,7 @@ Ext.define('Rally.technicalservices.HierarchyLoader', {
         var type = this.storyModelName,
             fetch = this.fetch.concat(this.getRequiredFetchFields(type)),
             chunks = this._getChunks(parentRecords, 'LeafStoryCount'),
-            featureParentName = this.portfolioItemTypes[0].get('Name').replace(/\s/g, '') + ".ObjectID";
+            featureParentName = this.portfolioItemTypes[0].get('Name').replace(/\s/g, '');
 
         return this.fetchChunks(type, fetch, chunks, featureParentName, Ext.String.format("Please Wait... Loading User Stories for {0} Portfolio Items", parentRecords.length));
     },
@@ -209,7 +217,7 @@ Ext.define('Rally.technicalservices.HierarchyLoader', {
             chunks = this._getChunks(parentRecords, childField, 'Count'),
             parentField = this.getParentFieldFor(type, parentType);
 
-        return this.fetchChunks(type, fetch, chunks, parentField + ".ObjectID",
+        return this.fetchChunks(type, fetch, chunks, parentField,
             Ext.String.format("Please Wait... Loading {0} for {1} items", childField, parentRecords.length));
     },
 
@@ -238,18 +246,17 @@ Ext.define('Rally.technicalservices.HierarchyLoader', {
 
         var promises = [];
         _.each(chunks, function (c) {
-            var filters = _.map(c, function (ids) { return { property: chunkProperty, value: ids }; }),
-                config = {
-                    model: type,
-                    fetch: fetch,
-                    sorters: [
-                        { property: 'TaskIndex', direction: 'ASC' },
-                        { property: 'DragAndDropRank', direction: 'ASC' }
-                    ],
-                    filters: Rally.data.wsapi.Filter.or(filters),
-                    context: { project: null },
-                    enablePostGet: true
-                };
+            let config = {
+                model: type,
+                fetch: fetch,
+                sorters: [
+                    { property: 'TaskIndex', direction: 'ASC' },
+                    { property: 'DragAndDropRank', direction: 'ASC' }
+                ],
+                filters: [{ property: chunkProperty, operator: 'in', value: c }],
+                context: { project: null },
+                enablePostGet: true
+            };
             promises.push(function () { return this.fetchWsapiRecords(config); });
         });
 
@@ -336,14 +343,14 @@ Ext.define('Rally.technicalservices.HierarchyLoader', {
 
     getRequiredFetchFields: function (type) {
         if (/^portfolioitem/.test(type.toLowerCase())) {
-            return ['Children', 'LeafStoryCount', 'Parent', 'ObjectID', 'UserStories'];
+            return ['Parent', 'ObjectID'];
         }
 
         if (type.toLowerCase() === this.storyModelName) {
-            return ['FormattedID', 'Children', 'Tasks', 'Parent', 'PortfolioItem', 'HasParent', 'ObjectID', 'TestCases', 'Defects'];
+            return ['FormattedID', 'Parent', 'PortfolioItem', 'HasParent', 'ObjectID', 'TestCases'];
         }
 
-        return ['ObjectID', 'WorkProduct', 'Defects', 'Tasks', 'TestCases', 'Requirement', 'TestCase', 'FormattedID'];
+        return ['ObjectID', 'WorkProduct', 'Requirement', 'TestCase', 'FormattedID'];
     },
     throttle: function (fns, maxParallelCalls, scope) {
 
