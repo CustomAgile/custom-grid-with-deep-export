@@ -330,7 +330,8 @@ Ext.define('custom-grid-with-deep-export', {
                         stateful: true,
                         stateId: this.getModelScopedStateId(currentModelName, 'views'),
                         stateEvents: ['select', 'change', 'beforedestroy'],
-                        context: this.getContext()
+                        context: this.getContext(),
+                        suppressViewNotFoundNotification: true
                     },
                 }
             ],
