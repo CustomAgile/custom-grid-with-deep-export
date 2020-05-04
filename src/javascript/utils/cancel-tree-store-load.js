@@ -15,11 +15,18 @@ Ext.override(Rally.data.wsapi.TreeStore, {
         this.callParent(arguments);
     },
 
-    onProxyLoad: function () {
+    onProxyLoad: function (operation) {
         if (this.loadCanceled) {
             this.loadCanceled = false;
             return;
         }
+
+        if (operation.error && operation.error.errors && operation.error.errors.length > 0) {
+            this._hasErrors = true;
+            this.fireEvent('error', operation.error.errors);
+            return;
+        }
+
         this.callParent(arguments);
     }
 });

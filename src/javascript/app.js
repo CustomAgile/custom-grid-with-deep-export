@@ -126,7 +126,7 @@ Ext.define('custom-grid-with-deep-export', {
                             }
                         },
                         failure(msg) {
-                            this._showError(msg);
+                            this._showError(msg, 'Failed to load portfolio item types');
                         },
                     });
                 },
@@ -172,7 +172,7 @@ Ext.define('custom-grid-with-deep-export', {
             listeners: {
                 scope: this,
                 error: function () {
-                    this._showError('Error loading tree store. Try adjusting your filters to reduce the result set.');
+                    this._showError('Error loading tree store. Try adjusting your filters to reduce the result set.', '', thisStatus);
                 }
             },
         }).then({
@@ -182,6 +182,9 @@ Ext.define('custom-grid-with-deep-export', {
                     return;
                 }
                 this._addGridboard(store, thisStatus);
+            },
+            failure: (msg) => {
+                this._showError('Error loading tree store. Try adjusting your filters to reduce the result set.', '', thisStatus);
             },
             scope: this
         });
@@ -198,8 +201,7 @@ Ext.define('custom-grid-with-deep-export', {
         }
 
         let ancestorAndMultiFilters = await this.ancestorFilterPlugin.getAllFiltersForType(currentModelName, true).catch((e) => {
-            Rally.ui.notify.Notifier.showError({ message: (e.message || e) });
-            thisStatus.loadingFailed = true;
+            this._showError(e, 'Failed while loading filters', thisStatus);
         });
 
         if (thisStatus.loadingFailed) {
@@ -499,13 +501,38 @@ Ext.define('custom-grid-with-deep-export', {
         return _.map(this.portfolioItemTypes, type => type.get('TypePath').toLowerCase());
     },
 
-    _showError(msg, status) {
+    _showError(msg, defaultMessage, status) {
         if (status) {
             status.loadingFailed = true;
         }
         this._setLoading(false);
-        Rally.ui.notify.Notifier.showError({ message: msg });
+        Rally.ui.notify.Notifier.showError({ message: this.parseError(msg, defaultMessage) });
     },
+
+    parseError(e, defaultMessage) {
+        defaultMessage = defaultMessage || 'An unknown error has occurred';
+
+        if (typeof e === 'string' && e.length) {
+            return e;
+        }
+        if (e.message && e.message.length) {
+            return e.message;
+        }
+        if (e.exception && e.error && e.error.errors && e.error.errors.length) {
+            if (e.error.errors[0].length) {
+                return e.error.errors[0];
+            } else {
+                if (e.error && e.error.response && e.error.response.status) {
+                    return `${defaultMessage} (Status ${e.error.response.status})`;
+                }
+            }
+        }
+        if (e.exceptions && e.exceptions.length && e.exceptions[0].error) {
+            return e.exceptions[0].error.statusText;
+        }
+        return defaultMessage;
+    },
+
     _showStatus(message) {
         this.logger.log('_showstatus', message, this);
         if (message) {
@@ -552,8 +579,7 @@ Ext.define('custom-grid-with-deep-export', {
         }
 
         let ancestorAndMultiFilters = await this.ancestorFilterPlugin.getAllFiltersForType(this.modelNames[0], true).catch((e) => {
-            Rally.ui.notify.Notifier.showError({ message: (e.message || e) });
-            status.loadingFailed = true;
+            this._showError(e, 'Error while loading filters for export', status);
         });
 
         if (ancestorAndMultiFilters) {
@@ -606,8 +632,6 @@ Ext.define('custom-grid-with-deep-export', {
         let sorters = this._getExportSorters();
 
         this.logger.log('_export', fetch, args, columns, filters.toString(), childModels, sorters);
-
-        // this._setLoading('Loading data for export...');
 
         let exporter = Ext.create('Rally.technicalservices.HierarchyExporter', {
             modelName,

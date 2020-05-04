@@ -30,15 +30,15 @@ Ext.define('Rally.technicalservices.HierarchyLoader', {
     load: function () {
 
         if (!this.model) {
-            this.fireEvent('hierarchyloaderror', "No model specified.", this.status);
+            this.fireEvent('hierarchyloaderror', "No model specified.", "", this.status);
             return;
         }
         if (this.portfolioItemTypes.length === 0) {
-            this.fireEvent('hierarchyloaderror', "Portfolio Item Types not initialized.", this.status);
+            this.fireEvent('hierarchyloaderror', "Portfolio Item Types not initialized.", "", this.status);
             return;
         }
         if (!(this.loadChildModels instanceof Array)) {
-            this.fireEvent('hierarchyloaderror', "No child models specified.", this.status);
+            this.fireEvent('hierarchyloaderror', "No child models specified.", "", this.status);
             return;
         }
 
@@ -55,7 +55,7 @@ Ext.define('Rally.technicalservices.HierarchyLoader', {
                 this.fireEvent('hierarchyloadcomplete');
             },
             failure: function (msg) {
-                this.fireEvent('hierarchyloaderror', msg, this.status);
+                this.fireEvent('hierarchyloaderror', msg, "", this.status);
             },
             scope: this
         });
@@ -275,7 +275,7 @@ Ext.define('Rally.technicalservices.HierarchyLoader', {
                     deferred.resolve(records);
                 }
                 else {
-                    deferred.reject('fetchWsapiRecords error: ' + operation.error.errors.join(','));
+                    deferred.reject('fetchWsapiRecords error: ' + ((operation.error && operation.error.errors && operation.error.errors.join(',')) || ''));
                 }
             },
             scope: this
