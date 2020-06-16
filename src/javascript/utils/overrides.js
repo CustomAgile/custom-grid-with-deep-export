@@ -87,14 +87,6 @@ Ext.override(Rally.ui.gridboard.plugin.GridBoardFieldPicker, {
     ]
 });
 
-Ext.override(Rally.ui.inlinefilter.PropertyFieldComboBox, {
-    /**
-     * @cfg {String[]} whiteListFields
-     * field names that should be included from the filter row field combobox
-     */
-    defaultWhiteListFields: ['Milestones', 'Tags', 'c_EnterpriseApprovalEA', 'c_EAEpic', 'DisplayColor']
-});
-
 Ext.override(Rally.ui.grid.TreeGrid, {
     // Override needed to allow summaryType to be restored when a column with
     // summaryType config is added by the field picker
@@ -156,7 +148,7 @@ Ext.override(Rally.ui.grid.TreeGrid, {
 
 // We filter the list ourselves in the settings so we can include whitelisted fields
 Ext.override(Rally.ui.combobox.FieldComboBox, {
-    _isNotHidden: function (field) {
+    _isNotHidden: function () {
         return true;
     },
 });

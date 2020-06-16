@@ -11,10 +11,9 @@
     "dependencies": {
         "@agile-central-technical-services/utils-ancestor-pi-inline-filter": "^1.0.14",
         "@agile-central-technical-services/utils-cancel-store-load": "^1.0.0",
-        "@agile-central-technical-services/utils-shared-views": "^1.0.2",
         "@customagile/ancestor-pi-multi-level-pi-app-filter": "git+https://github.com/CustomAgile/utils-ancestor-pi-app-filter.git",
         "@customagile/utils-field-renderer": "git+https://github.com/CustomAgile/utils-field-renderer.git",
-        "field-renderer": "git+https://github.com/CustomAgile/utils-field-renderer.git",
+        "@customagile/utils-shared-views": "git+https://github.com/CustomAgile/utils-shared-views.git",
         "papaparse": "^5.1.1"
     },
     "devDependencies": {

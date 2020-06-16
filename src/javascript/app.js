@@ -2,6 +2,9 @@ Ext.define('custom-grid-with-deep-export', {
     extend: 'Rally.app.App',
     componentCls: 'app',
     logger: new Rally.technicalservices.Logger(),
+    integrationHeaders: {
+        name: 'custom-grid-with-deep-export'
+    },
     layout: {
         type: 'vbox',
         align: 'stretch'
@@ -41,10 +44,6 @@ Ext.define('custom-grid-with-deep-export', {
         }
     },
 
-    integrationHeaders: {
-        name: 'custom-grid-with-deep-export'
-    },
-
     disallowedAddNewTypes: ['user', 'userprofile', 'useriterationcapacity', 'testcaseresult', 'task', 'scmrepository', 'project', 'changeset', 'change', 'builddefinition', 'build', 'program'],
     orderedAllowedPageSizes: [10, 25, 50, 100, 200],
     readOnlyGridTypes: ['build', 'change', 'changeset'],
@@ -70,15 +69,6 @@ Ext.define('custom-grid-with-deep-export', {
         this.ancestorFilterPlugin = Ext.create('Utils.AncestorPiAppFilter', {
             ptype: 'UtilsAncestorPiAppFilter',
             pluginId: 'ancestorFilterPlugin',
-            settingsConfig: {},
-            whiteListFields: [
-                'Tags',
-                'Milestones',
-                'c_EnterpriseApprovalEA',
-                'c_EAEpic',
-                'DisplayColor'
-            ],
-            filtersHidden: false,
             visibleTab: type,
             listeners: {
                 scope: this,
@@ -190,7 +180,6 @@ Ext.define('custom-grid-with-deep-export', {
         });
     },
     async _addGridboard(store, thisStatus) {
-
         let currentModelName = this.modelNames[0];
         let stateIdForType = Ext.String.startsWith(currentModelName.toLowerCase(), 'portfolioitem') ? 'CA.customgridportfolioitems' : 'CA.customgridothers';
 
@@ -302,8 +291,7 @@ Ext.define('custom-grid-with-deep-export', {
                             quickFilterPanelConfig: {
                                 hidden: true,
                                 portfolioItemTypes: this.portfolioItemTypes,
-                                modelName: currentModelName,
-                                whiteListFields: ['Tags', 'Milestones', 'c_EnterpriseApprovalEA', 'c_EAEpic', 'DisplayColor']
+                                modelName: currentModelName
                             }
                         }
                     }
